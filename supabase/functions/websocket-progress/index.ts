@@ -56,8 +56,23 @@ serve(async (req) => {
   // Handle HTTP progress updates from n8n (for external webhooks)
   if (req.method === 'POST') {
     try {
-      const progressData = await req.json()
-      console.log('Received HTTP progress update:', progressData)
+      const rawData = await req.json()
+      console.log('Received HTTP progress update (raw):', rawData)
+      
+      // Handle n8n's nested JSON structure
+      let progressData
+      if (Array.isArray(rawData) && rawData.length > 0 && rawData[0].JSON) {
+        // n8n format: [{ "JSON": { "type": "progress", ... } }]
+        progressData = rawData[0].JSON
+      } else if (rawData.JSON) {
+        // Alternative n8n format: { "JSON": { "type": "progress", ... } }
+        progressData = rawData.JSON
+      } else {
+        // Direct format: { "type": "progress", ... }
+        progressData = rawData
+      }
+      
+      console.log('Processed progress data:', progressData)
       
       // Broadcast progress to all connected WebSocket clients
       connections.forEach((socket, connectionId) => {
