@@ -8,15 +8,20 @@ export const useChat = () => {
   const { addMessage, setLoading, isMuted, updateProgress, resetProgress } = useChatStore();
   const [error, setError] = useState<string | null>(null);
 
-  // WebSocket connection for real-time updates - now using Supabase Edge Function
+  // WebSocket connection for real-time updates
   const { isConnected: wsConnected, sendMessage: wsSendMessage } = useWebSocket(
-    '', // URL is handled internally by the hook now
+    '', // URL is handled internally by the hook
     {
       onProgressUpdate: (update: ProgressUpdate) => {
-        console.log('Progress update received:', update);
+        console.log('Progress update received in useChat:', update);
         
         switch (update.type) {
+          case 'connected':
+            console.log('WebSocket connected with ID:', update.connectionId);
+            break;
+            
           case 'progress':
+            console.log('Updating progress:', update.progress, update.message);
             updateProgress({
               isVisible: true,
               progress: update.progress || 0,
@@ -25,6 +30,7 @@ export const useChat = () => {
             break;
             
           case 'message':
+            console.log('Received message update:', update.message);
             if (update.message) {
               addMessage({
                 from: 'bot',
@@ -39,6 +45,7 @@ export const useChat = () => {
             break;
             
           case 'complete':
+            console.log('Workflow completed:', update.message);
             resetProgress();
             setLoading(false);
             if (update.message) {
@@ -46,10 +53,16 @@ export const useChat = () => {
                 from: 'bot',
                 text: update.message,
               });
+              
+              // Handle audio if available and not muted
+              if (update.data?.audio && !isMuted) {
+                handleAudioPlayback(update.data.audio, update.message);
+              }
             }
             break;
             
           case 'error':
+            console.log('Workflow error:', update.message);
             resetProgress();
             setLoading(false);
             const errorMessage = update.message || 'An error occurred during processing.';
@@ -175,7 +188,9 @@ export const useChat = () => {
         text,
       });
       
-      // Show loading state
+      console.log('Sending message. WebSocket connected:', wsConnected);
+      
+      // Show loading state and reset progress
       setLoading(true);
       resetProgress();
       
@@ -191,10 +206,12 @@ export const useChat = () => {
         if (!sent) {
           console.log('WebSocket send failed, falling back to HTTP');
           await checkMeetingConflicts(text);
+          setLoading(false);
         }
       } else {
         console.log('WebSocket not connected, using HTTP');
         await checkMeetingConflicts(text);
+        setLoading(false);
       }
       
     } catch (err) {
@@ -214,10 +231,7 @@ export const useChat = () => {
       }
       
       resetProgress();
-    } finally {
-      if (!wsConnected) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
