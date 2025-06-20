@@ -8,7 +8,7 @@ import { useChatStore } from '../store/chatStore';
 import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
-  const { sendMessage, handleActionClick, error } = useChat();
+  const { sendMessage, handleActionClick, error, isPolling } = useChat();
   const { isLoading } = useChatStore();
 
   return (
@@ -19,12 +19,18 @@ const Index = () => {
       
       <ChatInput 
         onSendMessage={sendMessage} 
-        disabled={isLoading}
+        disabled={isLoading || isPolling}
       />
       
       {error && (
         <div className="bg-red-50 border-t border-red-200 p-2 text-center">
           <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+      
+      {isPolling && (
+        <div className="bg-blue-50 border-t border-blue-200 p-2 text-center">
+          <p className="text-blue-600 text-sm">Processing your request...</p>
         </div>
       )}
       
