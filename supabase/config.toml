@@ -1,1 +1,5 @@
+
 project_id = "pqwrhinsjifmaaziyhqj"
+
+[functions.websocket-progress]
+verify_jwt = false
