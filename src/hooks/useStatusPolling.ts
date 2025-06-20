@@ -23,7 +23,7 @@ export const useStatusPolling = () => {
   
   const [sessionId, setSessionId] = useState<string>('');
   const [isPolling, setIsPolling] = useState(false);
-  const lastProcessedId = useRef<string>('');
+  const lastProcessedTime = useRef<string>('');
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   
   const processStatusUpdate = (update: StatusUpdate) => {
@@ -53,12 +53,13 @@ export const useStatusPolling = () => {
             if (update.data?.audio && !isMuted) {
               handleAudioPlayback(update.data.audio, update.message);
             }
-          }, 1000); // Small delay to show 100% progress
+          }, 1000);
         }
         break;
         
       case 'message':
-        console.log('Received message update:', update.message);
+      case 'complete':
+        console.log('Received message/complete update:', update.message);
         
         if (update.message) {
           console.log('Hiding progress and adding message to chat');
@@ -78,22 +79,10 @@ export const useStatusPolling = () => {
             console.log('Playing audio for message');
             handleAudioPlayback(update.data.audio, update.message);
           }
-        }
-        break;
-        
-      case 'complete':
-        console.log('Workflow completed:', update.message);
-        resetProgress();
-        setLoading(false);
-        
-        if (update.message) {
-          addMessage({
-            from: 'bot',
-            text: update.message,
-          });
           
-          if (update.data?.audio && !isMuted) {
-            handleAudioPlayback(update.data.audio, update.message);
+          // Stop polling after receiving a complete message
+          if (update.type === 'complete') {
+            stopPolling();
           }
         }
         break;
@@ -107,6 +96,8 @@ export const useStatusPolling = () => {
           from: 'bot',
           text: update.message || 'An error occurred during processing.',
         });
+        
+        stopPolling();
         break;
     }
   };
@@ -128,9 +119,9 @@ export const useStatusPolling = () => {
         const data: StatusResponse = await response.json();
         console.log('Polling response:', data);
         
-        // Process new updates (those we haven't seen before)
+        // Process new updates (those created after our last processed time)
         const newUpdates = data.updates.filter(update => {
-          return update.created_at > (lastProcessedId.current || '');
+          return update.created_at > lastProcessedTime.current;
         });
         
         console.log('New updates found:', newUpdates.length);
@@ -148,7 +139,7 @@ export const useStatusPolling = () => {
           });
           
           // Update the last processed timestamp
-          lastProcessedId.current = newUpdates[newUpdates.length - 1].created_at;
+          lastProcessedTime.current = newUpdates[newUpdates.length - 1].created_at;
         }
       } else {
         console.error('Polling failed:', response.status, response.statusText);
@@ -166,13 +157,13 @@ export const useStatusPolling = () => {
     
     setSessionId(newSessionId);
     setIsPolling(true);
-    lastProcessedId.current = new Date().toISOString(); // Start from now
+    lastProcessedTime.current = new Date().toISOString();
     
     // Start polling every 2 seconds
     pollingInterval.current = setInterval(pollStatus, 2000);
     
-    // Do an immediate poll
-    setTimeout(() => pollStatus(), 100);
+    // Do an immediate poll after a short delay
+    setTimeout(() => pollStatus(), 500);
   };
   
   const stopPolling = () => {
@@ -185,7 +176,7 @@ export const useStatusPolling = () => {
     
     setIsPolling(false);
     setSessionId('');
-    lastProcessedId.current = '';
+    lastProcessedTime.current = '';
   };
   
   // Trigger n8n workflow via HTTP
@@ -200,7 +191,7 @@ export const useStatusPolling = () => {
       // Start polling before triggering the workflow
       startPolling(newSessionId);
       
-      // Trigger the n8n workflow with session_id
+      // Trigger the n8n workflow
       const encodedMessage = encodeURIComponent(message);
       const n8nUrl = `https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}&session_id=${timestamp}`;
       
@@ -215,6 +206,32 @@ export const useStatusPolling = () => {
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
+      }
+      
+      // Get the response and manually add it as a status update if polling doesn't catch it
+      const responseData = await response.json();
+      console.log('N8N response:', responseData);
+      
+      // If we get an immediate response, process it
+      if (responseData && (responseData.notification || responseData.text)) {
+        setTimeout(() => {
+          const message = responseData.notification?.text || responseData.text || 'Response received';
+          console.log('Processing immediate n8n response:', message);
+          
+          resetProgress();
+          setLoading(false);
+          
+          addMessage({
+            from: 'bot',
+            text: message,
+          });
+          
+          if (responseData.notification?.audio && !isMuted) {
+            handleAudioPlayback(responseData.notification.audio, message);
+          }
+          
+          stopPolling();
+        }, 500);
       }
       
       return true;
