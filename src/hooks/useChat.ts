@@ -1,98 +1,10 @@
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
-import { sendMessageToDeana, handleActionClick as handleAction } from '../utils/api';
-import { useWebSocket, ProgressUpdate } from './useWebSocket';
 
 export const useChat = () => {
-  const { addMessage, setLoading, isMuted, updateProgress, resetProgress } = useChatStore();
+  const { addMessage, setLoading, isMuted } = useChatStore();
   const [error, setError] = useState<string | null>(null);
-
-  // WebSocket connection for real-time updates
-  const { isConnected: wsConnected, sendMessage: wsSendMessage } = useWebSocket(
-    '', // URL is handled internally by the hook
-    {
-      onProgressUpdate: (update: ProgressUpdate) => {
-        console.log('Progress update received in useChat:', update);
-        
-        switch (update.type) {
-          case 'connected':
-            console.log('WebSocket connected with ID:', update.connectionId);
-            break;
-            
-          case 'progress':
-            console.log('Updating progress:', update.progress, update.message);
-            // Handle both string and object message formats
-            const messageText = typeof update.message === 'string' 
-              ? update.message 
-              : update.message?.text || 'Processing...';
-            
-            updateProgress({
-              isVisible: true,
-              progress: update.progress || 0,
-              message: messageText
-            });
-            break;
-            
-          case 'message':
-            console.log('Received message update:', update.message);
-            const msgText = typeof update.message === 'string' 
-              ? update.message 
-              : update.message?.text || '';
-              
-            if (msgText) {
-              // Reset progress indicator first, then add message
-              resetProgress();
-              setLoading(false);
-              
-              addMessage({
-                from: 'bot',
-                text: msgText,
-              });
-              
-              // Handle audio if available and not muted
-              if (update.data?.audio && !isMuted) {
-                handleAudioPlayback(update.data.audio, msgText);
-              }
-            }
-            break;
-            
-          case 'complete':
-            console.log('Workflow completed:', update.message);
-            resetProgress();
-            setLoading(false);
-            const completeText = typeof update.message === 'string' 
-              ? update.message 
-              : update.message?.text || '';
-              
-            if (completeText) {
-              addMessage({
-                from: 'bot',
-                text: completeText,
-              });
-              
-              // Handle audio if available and not muted
-              if (update.data?.audio && !isMuted) {
-                handleAudioPlayback(update.data.audio, completeText);
-              }
-            }
-            break;
-            
-          case 'error':
-            console.log('Workflow error:', update.message);
-            resetProgress();
-            setLoading(false);
-            const errorText = typeof update.message === 'string' 
-              ? update.message 
-              : update.message?.text || 'An error occurred during processing.';
-            addMessage({
-              from: 'bot',
-              text: errorText,
-            });
-            break;
-        }
-      }
-    }
-  );
 
   const handleAudioPlayback = async (audioBase64: string, messageText: string) => {
     try {
@@ -123,10 +35,23 @@ export const useChat = () => {
     }
   };
 
-  const checkMeetingConflicts = async (message: string) => {
+  const sendMessage = async (text: string) => {
     try {
-      // Encode the message as a query parameter for GET request
-      const encodedMessage = encodeURIComponent(message);
+      setError(null);
+      
+      // Add user message immediately
+      addMessage({
+        from: 'user',
+        text,
+      });
+      
+      console.log('Sending message directly to webhook');
+      
+      // Show loading state
+      setLoading(true);
+      
+      // Call the webhook directly
+      const encodedMessage = encodeURIComponent(text);
       const response = await fetch(`https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`, {
         method: 'GET',
         headers: {
@@ -136,13 +61,13 @@ export const useChat = () => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Meeting conflicts check result:', result);
+        console.log('Webhook response:', result);
         
-        // Parse the response array - updated for new format
+        // Parse the response array
         if (Array.isArray(result) && result.length > 0) {
           const responseItem = result[0];
           
-          // Handle new nested notification structure
+          // Handle nested notification structure
           const notification = responseItem.notification;
           if (notification) {
             const messageText = notification.text;
@@ -190,46 +115,8 @@ export const useChat = () => {
             }
           }
         }
-      }
-    } catch (error) {
-      console.error('Error checking meeting conflicts:', error);
-    }
-  };
-
-  const sendMessage = async (text: string) => {
-    try {
-      setError(null);
-      
-      // Add user message immediately
-      addMessage({
-        from: 'user',
-        text,
-      });
-      
-      console.log('Sending message. WebSocket connected:', wsConnected);
-      
-      // Show loading state and reset progress
-      setLoading(true);
-      resetProgress();
-      
-      // Try WebSocket first, fallback to HTTP
-      if (wsConnected) {
-        console.log('Sending message via WebSocket');
-        const sent = wsSendMessage({
-          type: 'message',
-          message: text,
-          timestamp: new Date().toISOString()
-        });
-        
-        if (!sent) {
-          console.log('WebSocket send failed, falling back to HTTP');
-          await checkMeetingConflicts(text);
-          setLoading(false);
-        }
       } else {
-        console.log('WebSocket not connected, using HTTP');
-        await checkMeetingConflicts(text);
-        setLoading(false);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
     } catch (err) {
@@ -247,17 +134,14 @@ export const useChat = () => {
         const utterance = new SpeechSynthesisUtterance(errorMessage);
         speechSynthesis.speak(utterance);
       }
-      
-      resetProgress();
+    } finally {
       setLoading(false);
     }
   };
 
   const handleActionClick = (actionId: string) => {
     try {
-      handleAction(actionId);
-      
-      // Optionally add a message showing the action was taken
+      // Simple action handling
       const successMessage = `Action "${actionId}" triggered successfully!`;
       addMessage({
         from: 'bot',
@@ -278,6 +162,5 @@ export const useChat = () => {
     sendMessage,
     handleActionClick,
     error,
-    wsConnected,
   };
 };
