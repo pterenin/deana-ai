@@ -14,6 +14,12 @@ serve(async (req) => {
     socket.onopen = () => {
       console.log(`WebSocket connected: ${connectionId}`)
       connections.set(connectionId, socket)
+      
+      // Send connection confirmation
+      socket.send(JSON.stringify({
+        type: 'connected',
+        connectionId: connectionId
+      }))
     }
     
     socket.onmessage = async (event) => {
@@ -47,11 +53,11 @@ serve(async (req) => {
     return response
   }
   
-  // Handle HTTP progress updates from n8n
-  if (req.method === 'POST' && url.pathname === '/progress') {
+  // Handle HTTP progress updates from n8n (for external webhooks)
+  if (req.method === 'POST') {
     try {
       const progressData = await req.json()
-      console.log('Received progress update:', progressData)
+      console.log('Received HTTP progress update:', progressData)
       
       // Broadcast progress to all connected WebSocket clients
       connections.forEach((socket, connectionId) => {
@@ -67,7 +73,7 @@ serve(async (req) => {
         status: 200
       })
     } catch (error) {
-      console.error('Error processing progress update:', error)
+      console.error('Error processing HTTP progress update:', error)
       return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
         headers: { 'Content-Type': 'application/json' },
         status: 400
@@ -75,10 +81,22 @@ serve(async (req) => {
     }
   }
   
-  // Default response
-  return new Response(JSON.stringify({ error: 'Not found' }), {
+  // Handle GET requests (for testing)
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({ 
+      message: 'WebSocket Progress Service',
+      connected_clients: connections.size,
+      endpoint: 'Use WebSocket upgrade or POST for progress updates'
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    })
+  }
+  
+  // Default response for unsupported methods
+  return new Response(JSON.stringify({ error: 'Method not allowed' }), {
     headers: { 'Content-Type': 'application/json' },
-    status: 404
+    status: 405
   })
 })
 
