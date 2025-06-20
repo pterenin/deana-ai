@@ -117,39 +117,12 @@ serve(async (req) => {
 
 async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
   try {
-    // Send initial progress
+    // Send initial progress from the edge function (minimal)
     socket.send(JSON.stringify({
       type: 'progress',
-      progress: 10,
+      progress: 5,
       message: 'Starting workflow...'
     }))
-
-    await sleep(500)
-
-    // Send progress updates
-    socket.send(JSON.stringify({
-      type: 'progress',
-      progress: 30,
-      message: 'Processing your request...'
-    }))
-
-    await sleep(1000)
-
-    socket.send(JSON.stringify({
-      type: 'progress',
-      progress: 60,
-      message: 'Analyzing data...'
-    }))
-
-    await sleep(800)
-
-    socket.send(JSON.stringify({
-      type: 'progress',
-      progress: 80,
-      message: 'Generating response...'
-    }))
-
-    await sleep(600)
 
     // Make actual HTTP request to n8n webhook
     const encodedMessage = encodeURIComponent(userMessage)
@@ -164,15 +137,7 @@ async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
       const result = await response.json()
       console.log('n8n response:', result)
 
-      socket.send(JSON.stringify({
-        type: 'progress',
-        progress: 100,
-        message: 'Finalizing response...'
-      }))
-
-      await sleep(300)
-
-      // Send the actual response as a message (not complete)
+      // Send the actual response as a message
       if (Array.isArray(result) && result.length > 0) {
         const responseItem = result[0]
         const notification = responseItem.notification
