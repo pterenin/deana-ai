@@ -41,15 +41,16 @@ serve(async (req) => {
       
       // Create a simplified message for display
       let displayMessage = ''
-      let sessionIdToUse = 'default'
-      let messageType = 'message'
+      let sessionIdToUse = 'active_session' // Default to active_session
+      let messageType = 'complete'
+      let audioData = null
       
-      // Handle different message formats
-      if (statusData.notification && statusData.notification.text) {
-        displayMessage = statusData.notification.text
+      // Handle n8n notification format
+      if (statusData.notification) {
+        displayMessage = statusData.notification.text || ''
+        audioData = statusData.notification.audio || null
         messageType = 'complete'
-        // For n8n responses, we'll use a generic session ID that can be matched
-        sessionIdToUse = 'active_session'
+        console.log('Found notification format with message:', displayMessage)
       } else if (statusData.message) {
         if (typeof statusData.message === 'string') {
           displayMessage = statusData.message
@@ -63,25 +64,37 @@ serve(async (req) => {
           displayMessage = JSON.stringify(statusData.message)
         }
         sessionIdToUse = statusData.session_id ? statusData.session_id.toString() : 'active_session'
+        messageType = 'message'
       } else if (statusData.text) {
         displayMessage = statusData.text
         messageType = 'complete'
-        sessionIdToUse = 'active_session'
       }
       
       console.log('Final display message:', displayMessage)
       console.log('Session ID to use:', sessionIdToUse)
+      console.log('Audio data present:', !!audioData)
+      
+      if (!displayMessage) {
+        console.log('No message to save, skipping database insert')
+        return new Response(JSON.stringify({ success: true, message: 'No content to save' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
       
       // Insert status update into database
+      const insertData = {
+        session_id: sessionIdToUse,
+        type: messageType,
+        progress: 100, // Mark as complete
+        message: displayMessage,
+        data: audioData ? { audio: audioData } : null
+      }
+      
+      console.log('Inserting data:', JSON.stringify(insertData, null, 2))
+      
       const { error } = await supabaseClient
         .from('workflow_status')
-        .insert({
-          session_id: sessionIdToUse,
-          type: messageType,
-          progress: statusData.progress || 100,
-          message: displayMessage,
-          data: statusData.notification?.audio ? { audio: statusData.notification.audio } : null
-        })
+        .insert(insertData)
       
       if (error) {
         console.error('Error inserting status:', error)
@@ -129,7 +142,6 @@ serve(async (req) => {
       }
       
       console.log('Found status updates:', data?.length || 0)
-      console.log('Status updates:', JSON.stringify(data, null, 2))
       
       return new Response(JSON.stringify({ updates: data || [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
