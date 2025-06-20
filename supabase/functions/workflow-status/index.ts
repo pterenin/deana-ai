@@ -31,23 +31,29 @@ serve(async (req) => {
       
       // Handle n8n's nested JSON structure
       let statusData
-      if (Array.isArray(rawData) && rawData.length > 0 && rawData[0].JSON) {
-        statusData = rawData[0].JSON
-      } else if (rawData.JSON) {
-        statusData = rawData.JSON
+      if (Array.isArray(rawData) && rawData.length > 0) {
+        statusData = rawData[0]
       } else {
         statusData = rawData
       }
       
       console.log('Processed status data:', JSON.stringify(statusData, null, 2))
       
-      // Process the message based on its structure
+      // Create a simplified message for display
       let displayMessage = ''
-      if (statusData.message) {
+      let sessionIdToUse = 'default'
+      let messageType = 'message'
+      
+      // Handle different message formats
+      if (statusData.notification && statusData.notification.text) {
+        displayMessage = statusData.notification.text
+        messageType = 'complete'
+        // For n8n responses, we'll use a generic session ID that can be matched
+        sessionIdToUse = 'active_session'
+      } else if (statusData.message) {
         if (typeof statusData.message === 'string') {
           displayMessage = statusData.message
         } else if (statusData.message.tool && statusData.message.action) {
-          // Handle tool-based messages from n8n
           displayMessage = `${statusData.message.tool}: ${statusData.message.action}`
         } else if (statusData.message.info) {
           displayMessage = statusData.message.info
@@ -56,22 +62,25 @@ serve(async (req) => {
         } else {
           displayMessage = JSON.stringify(statusData.message)
         }
+        sessionIdToUse = statusData.session_id ? statusData.session_id.toString() : 'active_session'
+      } else if (statusData.text) {
+        displayMessage = statusData.text
+        messageType = 'complete'
+        sessionIdToUse = 'active_session'
       }
       
-      console.log('Display message:', displayMessage)
-      
-      // Convert numeric session_id to string and try to find matching frontend session
-      const sessionIdToUse = statusData.session_id ? statusData.session_id.toString() : (sessionId || 'default')
+      console.log('Final display message:', displayMessage)
+      console.log('Session ID to use:', sessionIdToUse)
       
       // Insert status update into database
       const { error } = await supabaseClient
         .from('workflow_status')
         .insert({
           session_id: sessionIdToUse,
-          type: statusData.type || 'progress',
-          progress: statusData.progress || 0,
+          type: messageType,
+          progress: statusData.progress || 100,
           message: displayMessage,
-          data: statusData.data || null
+          data: statusData.notification?.audio ? { audio: statusData.notification.audio } : null
         })
       
       if (error) {
@@ -103,11 +112,11 @@ serve(async (req) => {
       
       console.log('Polling status for session:', sessionId)
       
-      // Get latest status updates for this session - also check for partial matches
+      // Get latest status updates - check for exact match or 'active_session'
       const { data, error } = await supabaseClient
         .from('workflow_status')
         .select('*')
-        .or(`session_id.eq.${sessionId},session_id.like.%${sessionId.split('_')[1]}%`)
+        .or(`session_id.eq.${sessionId},session_id.eq.active_session`)
         .order('created_at', { ascending: false })
         .limit(10)
       
@@ -120,6 +129,7 @@ serve(async (req) => {
       }
       
       console.log('Found status updates:', data?.length || 0)
+      console.log('Status updates:', JSON.stringify(data, null, 2))
       
       return new Response(JSON.stringify({ updates: data || [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
