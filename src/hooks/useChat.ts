@@ -2,12 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { sendMessageToDeana, handleActionClick as handleAction } from '../utils/api';
-import { useVoice } from './useVoice';
 
 export const useChat = () => {
   const { addMessage, setLoading, isMuted } = useChatStore();
   const [error, setError] = useState<string | null>(null);
-  const voice = useVoice({ voice: 'nova' });
 
   const checkMeetingConflicts = async (message: string) => {
     try {
@@ -24,45 +22,81 @@ export const useChat = () => {
         const result = await response.json();
         console.log('Meeting conflicts check result:', result);
         
-        // Parse the response array
+        // Parse the response array - updated for new format
         if (Array.isArray(result) && result.length > 0) {
           const responseItem = result[0];
           
-          // Handle both "text" and "output" properties
-          const messageText = responseItem.text || responseItem.output;
-          
-          if (messageText) {
-            // Add the response as a bot message
-            addMessage({
-              from: 'bot',
-              text: messageText,
-            });
+          // Handle new nested notification structure
+          const notification = responseItem.notification;
+          if (notification) {
+            const messageText = notification.text;
+            const audioBase64 = notification.audio;
             
-            // Handle audio if available and not muted
-            if (responseItem.audioDataUrl && !isMuted) {
-              try {
-                // Create audio from data URL
-                const audio = new Audio(responseItem.audioDataUrl);
-                
-                audio.onended = () => {
-                  console.log('Audio playback completed');
-                };
-                
-                audio.onerror = (error) => {
-                  console.error('Audio playback error:', error);
-                  // Fallback to text-to-speech if audio fails
-                  voice.speak(messageText);
-                };
-                
-                await audio.play();
-              } catch (audioError) {
-                console.error('Error playing audio:', audioError);
-                // Fallback to text-to-speech if audio file fails
-                voice.speak(messageText);
+            if (messageText) {
+              // Add the response as a bot message
+              addMessage({
+                from: 'bot',
+                text: messageText,
+              });
+              
+              // Handle audio if available and not muted
+              if (audioBase64 && !isMuted) {
+                try {
+                  // Convert base64 to audio blob and play
+                  const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+                  const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+                  const audioUrl = URL.createObjectURL(audioBlob);
+                  const audio = new Audio(audioUrl);
+                  
+                  audio.onended = () => {
+                    console.log('Audio playback completed');
+                    URL.revokeObjectURL(audioUrl);
+                  };
+                  
+                  audio.onerror = (error) => {
+                    console.error('Audio playback error:', error);
+                    URL.revokeObjectURL(audioUrl);
+                    // Fallback to browser speech synthesis
+                    const utterance = new SpeechSynthesisUtterance(messageText);
+                    speechSynthesis.speak(utterance);
+                  };
+                  
+                  await audio.play();
+                } catch (audioError) {
+                  console.error('Error playing audio:', audioError);
+                  // Fallback to browser speech synthesis
+                  const utterance = new SpeechSynthesisUtterance(messageText);
+                  speechSynthesis.speak(utterance);
+                }
               }
-            } else if (!isMuted && messageText) {
-              // If no audio file, use text-to-speech
-              voice.speak(messageText);
+            }
+          } else {
+            // Fallback to old format if notification structure not found
+            const messageText = responseItem.text || responseItem.output;
+            const audioDataUrl = responseItem.audioDataUrl;
+            
+            if (messageText) {
+              addMessage({
+                from: 'bot',
+                text: messageText,
+              });
+              
+              if (audioDataUrl && !isMuted) {
+                try {
+                  const audio = new Audio(audioDataUrl);
+                  audio.onended = () => console.log('Audio playback completed');
+                  audio.onerror = (error) => {
+                    console.error('Audio playback error:', error);
+                    const utterance = new SpeechSynthesisUtterance(messageText);
+                    speechSynthesis.speak(utterance);
+                  };
+                  await audio.play();
+                } catch (audioError) {
+                  console.error('Error playing audio:', audioError);
+                  const utterance = new SpeechSynthesisUtterance(messageText);
+                  speechSynthesis.speak(utterance);
+                }
+              }
             }
           }
         }
@@ -85,7 +119,7 @@ export const useChat = () => {
       // Show loading state
       setLoading(true);
       
-      // Wait for the API response instead of sending to mock backend
+      // Wait for the API response
       await checkMeetingConflicts(text);
       
     } catch (err) {
@@ -100,7 +134,8 @@ export const useChat = () => {
       });
       
       if (!isMuted) {
-        voice.speak(errorMessage);
+        const utterance = new SpeechSynthesisUtterance(errorMessage);
+        speechSynthesis.speak(utterance);
       }
     } finally {
       setLoading(false);
@@ -119,7 +154,8 @@ export const useChat = () => {
       });
       
       if (!isMuted) {
-        voice.speak(successMessage);
+        const utterance = new SpeechSynthesisUtterance(successMessage);
+        speechSynthesis.speak(utterance);
       }
     } catch (err) {
       console.error('Action error:', err);
@@ -131,7 +167,5 @@ export const useChat = () => {
     sendMessage,
     handleActionClick,
     error,
-    voiceError: voice.error,
-    isVoicePlaying: voice.isPlaying,
   };
 };
