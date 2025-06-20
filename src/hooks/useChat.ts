@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { handleActionClick as handleAction } from '../utils/api';
 import { useMeetingConflicts } from './useMeetingConflicts';
-import { useWebSocketProgress } from './useWebSocketProgress';
+import { useStatusPolling } from './useStatusPolling';
 
 export const useChat = () => {
   const { addMessage, setLoading, isMuted, resetProgress } = useChatStore();
   const [error, setError] = useState<string | null>(null);
   
   const { checkMeetingConflicts } = useMeetingConflicts();
-  const { wsConnected, wsSendMessage } = useWebSocketProgress();
+  const { isPolling, triggerWorkflow } = useStatusPolling();
 
   const sendMessage = async (text: string) => {
     try {
@@ -22,28 +22,18 @@ export const useChat = () => {
         text,
       });
       
-      console.log('Sending message. WebSocket connected:', wsConnected);
+      console.log('Sending message via HTTP polling approach');
       
       // Show loading state and reset progress
       setLoading(true);
       resetProgress();
       
-      // Try WebSocket first, fallback to HTTP
-      if (wsConnected) {
-        console.log('Sending message via WebSocket');
-        const sent = wsSendMessage({
-          type: 'message',
-          message: text,
-          timestamp: new Date().toISOString()
-        });
-        
-        if (!sent) {
-          console.log('WebSocket send failed, falling back to HTTP');
-          await checkMeetingConflicts(text);
-          setLoading(false);
-        }
-      } else {
-        console.log('WebSocket not connected, using HTTP');
+      // Try the new HTTP polling approach first
+      try {
+        await triggerWorkflow(text);
+        console.log('Workflow triggered successfully, polling started');
+      } catch (workflowError) {
+        console.log('Workflow trigger failed, falling back to HTTP');
         await checkMeetingConflicts(text);
         setLoading(false);
       }
@@ -94,6 +84,6 @@ export const useChat = () => {
     sendMessage,
     handleActionClick,
     error,
-    wsConnected,
+    isPolling,
   };
 };

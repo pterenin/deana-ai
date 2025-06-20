@@ -87,12 +87,45 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_status: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string | null
+          progress: number | null
+          session_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string | null
+          progress?: number | null
+          session_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string | null
+          progress?: number | null
+          session_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_workflow_status: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
