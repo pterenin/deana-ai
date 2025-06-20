@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { sendMessageToDeana, handleActionClick as handleAction } from '../utils/api';
@@ -7,9 +8,9 @@ export const useChat = () => {
   const { addMessage, setLoading, isMuted, updateProgress, resetProgress } = useChatStore();
   const [error, setError] = useState<string | null>(null);
 
-  // WebSocket connection for real-time updates
+  // WebSocket connection for real-time updates - now using Supabase Edge Function
   const { isConnected: wsConnected, sendMessage: wsSendMessage } = useWebSocket(
-    'ws://localhost:8080',
+    '', // URL is handled internally by the hook now
     {
       onProgressUpdate: (update: ProgressUpdate) => {
         console.log('Progress update received:', update);

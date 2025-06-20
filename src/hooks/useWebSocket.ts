@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface ProgressUpdate {
@@ -23,14 +22,21 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
 
   const { onProgressUpdate, reconnectAttempts = 5, reconnectInterval = 3000 } = options;
 
+  // Use Supabase Edge Function URL instead of localhost
+  const getWebSocketUrl = useCallback(() => {
+    const supabaseUrl = 'https://pqwrhinsjifmaaziyhqj.supabase.co';
+    return `wss://${supabaseUrl.replace('https://', '')}/functions/v1/websocket-progress`;
+  }, []);
+
   const connect = useCallback(() => {
     try {
-      console.log('Connecting to WebSocket:', url);
-      const ws = new WebSocket(url);
+      const wsUrl = getWebSocketUrl();
+      console.log('Connecting to WebSocket:', wsUrl);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected to Supabase');
         setIsConnected(true);
         setError(null);
         setReconnectCount(0);
@@ -70,7 +76,7 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
       console.error('Error creating WebSocket:', err);
       setError('Failed to create WebSocket connection');
     }
-  }, [url, onProgressUpdate, reconnectAttempts, reconnectInterval, reconnectCount]);
+  }, [onProgressUpdate, reconnectAttempts, reconnectInterval, reconnectCount, getWebSocketUrl]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
