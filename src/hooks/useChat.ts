@@ -40,6 +40,10 @@ export const useChat = () => {
               : update.message?.text || '';
               
             if (msgText) {
+              // Reset progress indicator first, then add message
+              resetProgress();
+              setLoading(false);
+              
               addMessage({
                 from: 'bot',
                 text: msgText,
