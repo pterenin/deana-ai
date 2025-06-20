@@ -1,12 +1,34 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React from 'react';
+import { ChatContainer } from '../components/ChatContainer';
+import { ChatInput } from '../components/ChatInput';
+import { ChatHeader } from '../components/ChatHeader';
+import { useChat } from '../hooks/useChat';
+import { useChatStore } from '../store/chatStore';
+import { Toaster } from '@/components/ui/toaster';
 
 const Index = () => {
+  const { sendMessage, handleActionClick, error } = useChat();
+  const { isLoading } = useChatStore();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="h-screen flex flex-col bg-gray-50">
+      <ChatHeader />
+      
+      <ChatContainer onAction={handleActionClick} />
+      
+      <ChatInput 
+        onSendMessage={sendMessage} 
+        disabled={isLoading}
+      />
+      
+      {error && (
+        <div className="bg-red-50 border-t border-red-200 p-2 text-center">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+      
+      <Toaster />
     </div>
   );
 };
