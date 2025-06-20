@@ -117,16 +117,21 @@ serve(async (req) => {
 
 async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
   try {
-    // Send initial progress from the edge function (minimal)
+    console.log('Processing message with n8n workflow:', userMessage)
+    
+    // Send initial progress
     socket.send(JSON.stringify({
       type: 'progress',
-      progress: 5,
+      progress: 10,
       message: 'Starting workflow...'
     }))
 
-    // Make actual HTTP request to n8n webhook
+    // Make the HTTP request to n8n webhook
     const encodedMessage = encodeURIComponent(userMessage)
-    const response = await fetch(`https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`, {
+    const n8nUrl = `https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`
+    console.log('Calling n8n webhook:', n8nUrl)
+
+    const response = await fetch(n8nUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +140,14 @@ async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
 
     if (response.ok) {
       const result = await response.json()
-      console.log('n8n response:', result)
+      console.log('n8n response received:', result)
+
+      // Send completion progress
+      socket.send(JSON.stringify({
+        type: 'progress',
+        progress: 100,
+        message: 'Response ready!'
+      }))
 
       // Send the actual response as a message
       if (Array.isArray(result) && result.length > 0) {
@@ -143,6 +155,7 @@ async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
         const notification = responseItem.notification
         
         if (notification) {
+          console.log('Sending notification message:', notification.text)
           socket.send(JSON.stringify({
             type: 'message',
             message: notification.text,
@@ -152,13 +165,22 @@ async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
           }))
         } else {
           // Fallback format
+          const fallbackMessage = responseItem.text || responseItem.output || 'Response received from n8n'
+          console.log('Sending fallback message:', fallbackMessage)
           socket.send(JSON.stringify({
             type: 'message',
-            message: responseItem.text || responseItem.output || 'Response received from n8n'
+            message: fallbackMessage
           }))
         }
+      } else {
+        console.log('Unexpected response format from n8n')
+        socket.send(JSON.stringify({
+          type: 'error',
+          message: 'Received unexpected response format from workflow'
+        }))
       }
     } else {
+      console.error(`n8n webhook returned ${response.status}`)
       throw new Error(`HTTP ${response.status}`)
     }
   } catch (error) {
@@ -168,8 +190,4 @@ async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
       message: 'Sorry, I encountered an error processing your request. Please try again.'
     }))
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
 }
