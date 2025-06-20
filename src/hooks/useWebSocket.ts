@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface ProgressUpdate {
   type: 'progress' | 'message' | 'complete' | 'error' | 'connected';
   progress?: number;
-  message?: string;
+  message?: string | { text?: string };
   data?: any;
   connectionId?: string;
 }
