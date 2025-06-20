@@ -61,35 +61,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       id: Date.now().toString(),
       timestamp: new Date(),
     };
-    console.log('ChatStore: Adding message:', newMessage);
     set((state) => ({
       messages: [...state.messages, newMessage]
     }));
-    console.log('ChatStore: Messages after adding:', get().messages);
   },
-  setLoading: (loading) => {
-    console.log('ChatStore: Setting loading to:', loading);
-    set({ isLoading: loading });
-  },
+  setLoading: (loading) => set({ isLoading: loading }),
   toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
   clearMessages: () => set({ messages: [] }),
   updateVoiceSettings: (settings) => set((state) => ({
     voiceSettings: { ...state.voiceSettings, ...settings }
   })),
-  updateProgress: (progress) => {
-    console.log('ChatStore: Updating progress:', progress);
-    set((state) => ({
-      progressState: { ...state.progressState, ...progress }
-    }));
-  },
-  resetProgress: () => {
-    console.log('ChatStore: Resetting progress');
-    set({
-      progressState: {
-        isVisible: false,
-        progress: 0,
-        message: 'Processing...'
-      }
-    });
-  }
+  updateProgress: (progress) => set((state) => ({
+    progressState: { ...state.progressState, ...progress }
+  })),
+  resetProgress: () => set({
+    progressState: {
+      isVisible: false,
+      progress: 0,
+      message: 'Processing...'
+    }
+  })
 }));
