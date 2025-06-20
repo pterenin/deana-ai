@@ -37,24 +37,6 @@ export const useStatusPolling = () => {
           progress: update.progress || 0,
           message: update.message || 'Processing...'
         });
-        
-        // If progress reaches 100%, show completion message
-        if (update.progress === 100 && update.message) {
-          setTimeout(() => {
-            console.log('Progress complete, adding final message');
-            resetProgress();
-            setLoading(false);
-            
-            addMessage({
-              from: 'bot',
-              text: update.message,
-            });
-            
-            if (update.data?.audio && !isMuted) {
-              handleAudioPlayback(update.data.audio, update.message);
-            }
-          }, 1000);
-        }
         break;
         
       case 'message':
@@ -82,6 +64,7 @@ export const useStatusPolling = () => {
           
           // Stop polling after receiving a complete message
           if (update.type === 'complete') {
+            console.log('Message complete, stopping polling');
             stopPolling();
           }
         }
@@ -106,6 +89,7 @@ export const useStatusPolling = () => {
     if (!sessionId) return;
     
     try {
+      console.log('Polling for updates, session:', sessionId);
       const response = await fetch(
         `https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/workflow-status?session_id=${sessionId}`,
         {
@@ -140,6 +124,7 @@ export const useStatusPolling = () => {
           
           // Update the last processed timestamp
           lastProcessedTime.current = newUpdates[newUpdates.length - 1].created_at;
+          console.log('Updated last processed time to:', lastProcessedTime.current);
         }
       } else {
         console.error('Polling failed:', response.status, response.statusText);
@@ -157,13 +142,19 @@ export const useStatusPolling = () => {
     
     setSessionId(newSessionId);
     setIsPolling(true);
+    
+    // Reset timestamp to start fresh
     lastProcessedTime.current = new Date().toISOString();
+    console.log('Set initial timestamp to:', lastProcessedTime.current);
     
-    // Start polling every 2 seconds
-    pollingInterval.current = setInterval(pollStatus, 2000);
+    // Start polling every 1 second for faster response
+    pollingInterval.current = setInterval(pollStatus, 1000);
     
-    // Do an immediate poll after a short delay
-    setTimeout(() => pollStatus(), 500);
+    // Do an immediate poll after a short delay to catch immediate responses
+    setTimeout(() => {
+      console.log('Doing initial poll');
+      pollStatus();
+    }, 200);
   };
   
   const stopPolling = () => {
@@ -186,7 +177,7 @@ export const useStatusPolling = () => {
       const newSessionId = `session_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
       
       console.log('Triggering workflow with session:', newSessionId);
-      console.log('Using timestamp for matching:', timestamp);
+      console.log('Using timestamp for n8n:', timestamp);
       
       // Start polling before triggering the workflow
       startPolling(newSessionId);
@@ -208,30 +199,36 @@ export const useStatusPolling = () => {
         throw new Error(`HTTP ${response.status}`);
       }
       
-      // Get the response and manually add it as a status update if polling doesn't catch it
+      // Get the response from n8n
       const responseData = await response.json();
-      console.log('N8N response:', responseData);
+      console.log('N8N direct response:', responseData);
       
-      // If we get an immediate response, process it
-      if (responseData && (responseData.notification || responseData.text)) {
-        setTimeout(() => {
-          const message = responseData.notification?.text || responseData.text || 'Response received';
-          console.log('Processing immediate n8n response:', message);
+      // If we get an immediate response with notification, manually post it to our status endpoint
+      if (responseData && responseData.notification) {
+        console.log('Processing immediate n8n response via status endpoint');
+        
+        try {
+          const statusResponse = await fetch(
+            'https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/workflow-status',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`
+              },
+              body: JSON.stringify(responseData)
+            }
+          );
           
-          resetProgress();
-          setLoading(false);
-          
-          addMessage({
-            from: 'bot',
-            text: message,
-          });
-          
-          if (responseData.notification?.audio && !isMuted) {
-            handleAudioPlayback(responseData.notification.audio, message);
+          if (statusResponse.ok) {
+            console.log('Successfully posted immediate response to status endpoint');
+            // The polling will pick this up automatically
+          } else {
+            console.error('Failed to post to status endpoint:', await statusResponse.text());
           }
-          
-          stopPolling();
-        }, 500);
+        } catch (statusError) {
+          console.error('Error posting to status endpoint:', statusError);
+        }
       }
       
       return true;
