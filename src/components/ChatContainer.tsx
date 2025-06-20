@@ -1,7 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Bubble } from './Bubble';
-import { ProgressIndicator } from './ProgressIndicator';
 import { useChatStore } from '../store/chatStore';
 
 interface ChatContainerProps {
@@ -9,7 +8,7 @@ interface ChatContainerProps {
 }
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({ onAction }) => {
-  const { messages, isLoading, progressState } = useChatStore();
+  const { messages, isLoading } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -19,7 +18,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ onAction }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, progressState.isVisible]);
+  }, [messages]);
 
   return (
     <div 
@@ -38,15 +37,8 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ onAction }) => {
           />
         ))}
         
-        {/* WebSocket Progress Indicator */}
-        <ProgressIndicator
-          progress={progressState.progress}
-          message={progressState.message}
-          isVisible={progressState.isVisible}
-        />
-        
-        {/* Fallback loading indicator for HTTP requests */}
-        {isLoading && !progressState.isVisible && (
+        {/* Simple loading indicator */}
+        {isLoading && (
           <div className="flex gap-3 mb-4 justify-start">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
