@@ -27,7 +27,7 @@ serve(async (req) => {
       console.log('Received POST request for status update')
       
       const rawData = await req.json()
-      console.log('Raw data from n8n:', rawData)
+      console.log('Raw data from n8n:', JSON.stringify(rawData, null, 2))
       
       // Handle n8n's nested JSON structure
       let statusData
@@ -39,10 +39,29 @@ serve(async (req) => {
         statusData = rawData
       }
       
-      console.log('Processed status data:', statusData)
+      console.log('Processed status data:', JSON.stringify(statusData, null, 2))
       
-      // Extract session_id from the data or use a default
-      const sessionIdToUse = statusData.session_id || sessionId || 'default'
+      // Process the message based on its structure
+      let displayMessage = ''
+      if (statusData.message) {
+        if (typeof statusData.message === 'string') {
+          displayMessage = statusData.message
+        } else if (statusData.message.tool && statusData.message.action) {
+          // Handle tool-based messages from n8n
+          displayMessage = `${statusData.message.tool}: ${statusData.message.action}`
+        } else if (statusData.message.info) {
+          displayMessage = statusData.message.info
+        } else if (statusData.message.text) {
+          displayMessage = statusData.message.text
+        } else {
+          displayMessage = JSON.stringify(statusData.message)
+        }
+      }
+      
+      console.log('Display message:', displayMessage)
+      
+      // Convert numeric session_id to string and try to find matching frontend session
+      const sessionIdToUse = statusData.session_id ? statusData.session_id.toString() : (sessionId || 'default')
       
       // Insert status update into database
       const { error } = await supabaseClient
@@ -51,9 +70,7 @@ serve(async (req) => {
           session_id: sessionIdToUse,
           type: statusData.type || 'progress',
           progress: statusData.progress || 0,
-          message: typeof statusData.message === 'string' 
-            ? statusData.message 
-            : statusData.message?.text || null,
+          message: displayMessage,
           data: statusData.data || null
         })
       
@@ -64,6 +81,8 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+      
+      console.log('Status update saved successfully')
       
       // Clean up old records periodically
       await supabaseClient.rpc('cleanup_old_workflow_status')
@@ -84,11 +103,11 @@ serve(async (req) => {
       
       console.log('Polling status for session:', sessionId)
       
-      // Get latest status updates for this session
+      // Get latest status updates for this session - also check for partial matches
       const { data, error } = await supabaseClient
         .from('workflow_status')
         .select('*')
-        .eq('session_id', sessionId)
+        .or(`session_id.eq.${sessionId},session_id.like.%${sessionId.split('_')[1]}%`)
         .order('created_at', { ascending: false })
         .limit(10)
       
@@ -99,6 +118,8 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+      
+      console.log('Found status updates:', data?.length || 0)
       
       return new Response(JSON.stringify({ updates: data || [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -37,6 +37,24 @@ export const useStatusPolling = () => {
           progress: update.progress || 0,
           message: update.message || 'Processing...'
         });
+        
+        // If progress reaches 100%, show completion message
+        if (update.progress === 100 && update.message) {
+          setTimeout(() => {
+            console.log('Progress complete, adding final message');
+            resetProgress();
+            setLoading(false);
+            
+            addMessage({
+              from: 'bot',
+              text: update.message,
+            });
+            
+            if (update.data?.audio && !isMuted) {
+              handleAudioPlayback(update.data.audio, update.message);
+            }
+          }, 1000); // Small delay to show 100% progress
+        }
         break;
         
       case 'message':
@@ -108,11 +126,14 @@ export const useStatusPolling = () => {
       
       if (response.ok) {
         const data: StatusResponse = await response.json();
+        console.log('Polling response:', data);
         
         // Process new updates (those we haven't seen before)
         const newUpdates = data.updates.filter(update => {
           return update.created_at > (lastProcessedId.current || '');
         });
+        
+        console.log('New updates found:', newUpdates.length);
         
         if (newUpdates.length > 0) {
           // Sort by created_at to process in chronological order
@@ -121,11 +142,16 @@ export const useStatusPolling = () => {
           );
           
           // Process each new update
-          newUpdates.forEach(processStatusUpdate);
+          newUpdates.forEach((update, index) => {
+            console.log(`Processing update ${index + 1}/${newUpdates.length}:`, update);
+            processStatusUpdate(update);
+          });
           
           // Update the last processed timestamp
           lastProcessedId.current = newUpdates[newUpdates.length - 1].created_at;
         }
+      } else {
+        console.error('Polling failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error polling status:', error);
@@ -165,16 +191,18 @@ export const useStatusPolling = () => {
   // Trigger n8n workflow via HTTP
   const triggerWorkflow = async (message: string) => {
     try {
-      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const timestamp = Date.now();
+      const newSessionId = `session_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
       
       console.log('Triggering workflow with session:', newSessionId);
+      console.log('Using timestamp for matching:', timestamp);
       
       // Start polling before triggering the workflow
       startPolling(newSessionId);
       
       // Trigger the n8n workflow with session_id
       const encodedMessage = encodeURIComponent(message);
-      const n8nUrl = `https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}&session_id=${newSessionId}`;
+      const n8nUrl = `https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}&session_id=${timestamp}`;
       
       console.log('Calling n8n webhook:', n8nUrl);
       
