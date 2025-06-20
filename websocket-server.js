@@ -1,8 +1,43 @@
 
 const WebSocket = require('ws');
 const http = require('http');
+const url = require('url');
 
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  // Handle HTTP requests
+  if (req.method === 'POST' && req.url === '/progress') {
+    let body = '';
+    
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', () => {
+      try {
+        const progressData = JSON.parse(body);
+        console.log('Received progress update:', progressData);
+        
+        // Broadcast progress to all connected WebSocket clients
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(progressData));
+          }
+        });
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (error) {
+        console.error('Error processing progress update:', error);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+  } else {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+});
+
 const wss = new WebSocket.Server({ server });
 
 console.log('Starting WebSocket server on port 8080...');
@@ -133,5 +168,6 @@ function sleep(ms) {
 
 server.listen(8080, () => {
   console.log('WebSocket server listening on port 8080');
-  console.log('You can now connect to ws://localhost:8080');
+  console.log('WebSocket: ws://localhost:8080');
+  console.log('HTTP Progress endpoint: http://localhost:8080/progress');
 });
