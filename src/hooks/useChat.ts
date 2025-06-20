@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { sendMessageToDeana, handleActionClick as handleAction } from '../utils/api';
@@ -22,24 +21,33 @@ export const useChat = () => {
             
           case 'progress':
             console.log('Updating progress:', update.progress, update.message);
+            // Handle both string and object message formats
+            const messageText = typeof update.message === 'string' 
+              ? update.message 
+              : update.message?.text || 'Processing...';
+            
             updateProgress({
               isVisible: true,
               progress: update.progress || 0,
-              message: update.message || 'Processing...'
+              message: messageText
             });
             break;
             
           case 'message':
             console.log('Received message update:', update.message);
-            if (update.message) {
+            const msgText = typeof update.message === 'string' 
+              ? update.message 
+              : update.message?.text || '';
+              
+            if (msgText) {
               addMessage({
                 from: 'bot',
-                text: update.message,
+                text: msgText,
               });
               
               // Handle audio if available and not muted
               if (update.data?.audio && !isMuted) {
-                handleAudioPlayback(update.data.audio, update.message);
+                handleAudioPlayback(update.data.audio, msgText);
               }
             }
             break;
@@ -48,15 +56,19 @@ export const useChat = () => {
             console.log('Workflow completed:', update.message);
             resetProgress();
             setLoading(false);
-            if (update.message) {
+            const completeText = typeof update.message === 'string' 
+              ? update.message 
+              : update.message?.text || '';
+              
+            if (completeText) {
               addMessage({
                 from: 'bot',
-                text: update.message,
+                text: completeText,
               });
               
               // Handle audio if available and not muted
               if (update.data?.audio && !isMuted) {
-                handleAudioPlayback(update.data.audio, update.message);
+                handleAudioPlayback(update.data.audio, completeText);
               }
             }
             break;
@@ -65,10 +77,12 @@ export const useChat = () => {
             console.log('Workflow error:', update.message);
             resetProgress();
             setLoading(false);
-            const errorMessage = update.message || 'An error occurred during processing.';
+            const errorText = typeof update.message === 'string' 
+              ? update.message 
+              : update.message?.text || 'An error occurred during processing.';
             addMessage({
               from: 'bot',
-              text: errorMessage,
+              text: errorText,
             });
             break;
         }
