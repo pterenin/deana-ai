@@ -203,32 +203,33 @@ export const useStatusPolling = () => {
       const responseData = await response.json();
       console.log('N8N direct response:', responseData);
       
-      // If we get an immediate response with notification, manually post it to our status endpoint
-      if (responseData && responseData.notification) {
-        console.log('Processing immediate n8n response via status endpoint');
-        
-        try {
-          const statusResponse = await fetch(
-            'https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/workflow-status',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`
-              },
-              body: JSON.stringify(responseData)
-            }
-          );
-          
-          if (statusResponse.ok) {
-            console.log('Successfully posted immediate response to status endpoint');
-            // The polling will pick this up automatically
-          } else {
-            console.error('Failed to post to status endpoint:', await statusResponse.text());
+      // Immediately process the response by posting it to our status endpoint
+      console.log('Processing immediate n8n response via status endpoint');
+      
+      try {
+        const statusResponse = await fetch(
+          'https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/workflow-status',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`
+            },
+            body: JSON.stringify(responseData)
           }
-        } catch (statusError) {
-          console.error('Error posting to status endpoint:', statusError);
+        );
+        
+        if (statusResponse.ok) {
+          console.log('Successfully posted immediate response to status endpoint');
+          // Give a short delay for the database insert to complete, then poll
+          setTimeout(() => {
+            pollStatus();
+          }, 500);
+        } else {
+          console.error('Failed to post to status endpoint:', await statusResponse.text());
         }
+      } catch (statusError) {
+        console.error('Error posting to status endpoint:', statusError);
       }
       
       return true;
