@@ -28,8 +28,8 @@ serve(async (req) => {
         console.log('Received message:', message)
         
         if (message.type === 'message') {
-          // Simulate processing with progress updates
-          await simulateN8nWorkflow(socket, message.message)
+          // Process the message with n8n workflow
+          await processWithN8nWorkflow(socket, message.message)
         }
       } catch (error) {
         console.error('Error processing message:', error)
@@ -115,43 +115,43 @@ serve(async (req) => {
   })
 })
 
-async function simulateN8nWorkflow(socket: WebSocket, userMessage: string) {
-  // Send initial progress
-  socket.send(JSON.stringify({
-    type: 'progress',
-    progress: 10,
-    message: 'Starting workflow...'
-  }))
-
-  await sleep(1000)
-
-  // Send progress updates
-  socket.send(JSON.stringify({
-    type: 'progress',
-    progress: 30,
-    message: 'Processing your request...'
-  }))
-
-  await sleep(1500)
-
-  socket.send(JSON.stringify({
-    type: 'progress',
-    progress: 60,
-    message: 'Analyzing data...'
-  }))
-
-  await sleep(1000)
-
-  socket.send(JSON.stringify({
-    type: 'progress',
-    progress: 80,
-    message: 'Generating response...'
-  }))
-
-  await sleep(1000)
-
-  // Make actual HTTP request to n8n webhook
+async function processWithN8nWorkflow(socket: WebSocket, userMessage: string) {
   try {
+    // Send initial progress
+    socket.send(JSON.stringify({
+      type: 'progress',
+      progress: 10,
+      message: 'Starting workflow...'
+    }))
+
+    await sleep(500)
+
+    // Send progress updates
+    socket.send(JSON.stringify({
+      type: 'progress',
+      progress: 30,
+      message: 'Processing your request...'
+    }))
+
+    await sleep(1000)
+
+    socket.send(JSON.stringify({
+      type: 'progress',
+      progress: 60,
+      message: 'Analyzing data...'
+    }))
+
+    await sleep(800)
+
+    socket.send(JSON.stringify({
+      type: 'progress',
+      progress: 80,
+      message: 'Generating response...'
+    }))
+
+    await sleep(600)
+
+    // Make actual HTTP request to n8n webhook
     const encodedMessage = encodeURIComponent(userMessage)
     const response = await fetch(`https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`, {
       method: 'GET',
@@ -170,16 +170,16 @@ async function simulateN8nWorkflow(socket: WebSocket, userMessage: string) {
         message: 'Finalizing response...'
       }))
 
-      await sleep(500)
+      await sleep(300)
 
-      // Send the actual response
+      // Send the actual response as a message (not complete)
       if (Array.isArray(result) && result.length > 0) {
         const responseItem = result[0]
         const notification = responseItem.notification
         
         if (notification) {
           socket.send(JSON.stringify({
-            type: 'complete',
+            type: 'message',
             message: notification.text,
             data: {
               audio: notification.audio
@@ -188,7 +188,7 @@ async function simulateN8nWorkflow(socket: WebSocket, userMessage: string) {
         } else {
           // Fallback format
           socket.send(JSON.stringify({
-            type: 'complete',
+            type: 'message',
             message: responseItem.text || responseItem.output || 'Response received from n8n'
           }))
         }
