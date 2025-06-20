@@ -3,6 +3,3 @@ project_id = "pqwrhinsjifmaaziyhqj"
 
 [functions.websocket-progress]
 verify_jwt = false
-
-[functions.workflow-status]
-verify_jwt = false
