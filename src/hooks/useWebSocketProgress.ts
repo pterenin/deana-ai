@@ -8,7 +8,7 @@ export const useWebSocketProgress = () => {
   const { handleAudioPlayback } = useAudioPlayback();
 
   const handleProgressUpdate = (update: ProgressUpdate) => {
-    console.log('Progress update received in useChat:', update);
+    console.log('Progress update received in useWebSocketProgress:', update);
     
     switch (update.type) {
       case 'connected':
@@ -36,7 +36,7 @@ export const useWebSocketProgress = () => {
           : update.message?.text || '';
           
         if (msgText) {
-          // Reset progress indicator first, then add message
+          // Hide progress indicator first, then add message
           resetProgress();
           setLoading(false);
           
