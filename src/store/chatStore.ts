@@ -15,16 +15,25 @@ interface VoiceSettings {
   voiceId?: string;
 }
 
+interface ProgressState {
+  isVisible: boolean;
+  progress: number;
+  message: string;
+}
+
 interface ChatState {
   messages: Message[];
   isLoading: boolean;
   isMuted: boolean;
   voiceSettings: VoiceSettings;
+  progressState: ProgressState;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   setLoading: (loading: boolean) => void;
   toggleMute: () => void;
   clearMessages: () => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
+  updateProgress: (progress: Partial<ProgressState>) => void;
+  resetProgress: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -40,6 +49,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isMuted: false,
   voiceSettings: {
     voice: 'nova',
+  },
+  progressState: {
+    isVisible: false,
+    progress: 0,
+    message: 'Processing...'
   },
   addMessage: (message) => {
     const newMessage: Message = {
@@ -57,4 +71,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateVoiceSettings: (settings) => set((state) => ({
     voiceSettings: { ...state.voiceSettings, ...settings }
   })),
+  updateProgress: (progress) => set((state) => ({
+    progressState: { ...state.progressState, ...progress }
+  })),
+  resetProgress: () => set({
+    progressState: {
+      isVisible: false,
+      progress: 0,
+      message: 'Processing...'
+    }
+  })
 }));
