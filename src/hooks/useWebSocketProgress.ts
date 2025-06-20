@@ -31,24 +31,36 @@ export const useWebSocketProgress = () => {
         
       case 'message':
         console.log('Received message update:', update.message);
+        
+        // Extract the actual message text
         const msgText = typeof update.message === 'string' 
           ? update.message 
           : update.message?.text || '';
           
+        console.log('Extracted message text:', msgText);
+          
         if (msgText) {
-          // Hide progress indicator first, then add message
+          // Hide progress indicator first
+          console.log('Hiding progress and adding message to chat');
           resetProgress();
           setLoading(false);
           
-          addMessage({
-            from: 'bot',
+          // Add the message immediately
+          const newMessage = {
+            from: 'bot' as const,
             text: msgText,
-          });
+          };
+          
+          console.log('Adding message to chat store:', newMessage);
+          addMessage(newMessage);
           
           // Handle audio if available and not muted
           if (update.data?.audio && !isMuted) {
+            console.log('Playing audio for message');
             handleAudioPlayback(update.data.audio, msgText);
           }
+        } else {
+          console.error('No message text found in update:', update);
         }
         break;
         
