@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface ProgressUpdate {
@@ -22,10 +23,9 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
 
   const { onProgressUpdate, reconnectAttempts = 5, reconnectInterval = 3000 } = options;
 
-  // Use Supabase Edge Function URL instead of localhost
+  // Use Supabase Edge Function URL
   const getWebSocketUrl = useCallback(() => {
-    const supabaseUrl = 'https://pqwrhinsjifmaaziyhqj.supabase.co';
-    return `wss://${supabaseUrl.replace('https://', '')}/functions/v1/websocket-progress`;
+    return 'wss://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/websocket-progress';
   }, []);
 
   const connect = useCallback(() => {
