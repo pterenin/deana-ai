@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'alloy' } = await req.json();
+    const { text, voice = 'nova', instructions } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
@@ -25,6 +25,21 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
+    console.log('Generating TTS with voice:', voice, 'and instructions:', instructions);
+
+    // Prepare the request body for OpenAI TTS API
+    const requestBody: any = {
+      model: 'tts-1',
+      input: text,
+      voice: voice,
+      response_format: 'mp3',
+    };
+
+    // Add instructions if provided (note: this might not be directly supported by OpenAI TTS API)
+    // We'll include it in the text as a prefix for now
+    const finalText = instructions ? `[${instructions}] ${text}` : text;
+    requestBody.input = finalText;
+
     // Call OpenAI TTS API
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
@@ -32,12 +47,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'tts-1',
-        input: text,
-        voice: voice,
-        response_format: 'mp3',
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
