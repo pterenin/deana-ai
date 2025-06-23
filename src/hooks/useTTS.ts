@@ -8,6 +8,20 @@ export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Clean text by removing [More Details] links and URLs
+  const cleanTextForTTS = (text: string): string => {
+    // Remove [More Details](URL) markdown links
+    let cleanedText = text.replace(/\[More Details\]\([^)]+\)/g, '');
+    
+    // Remove any remaining standalone URLs that might be left
+    cleanedText = cleanedText.replace(/https?:\/\/[^\s]+/g, '');
+    
+    // Clean up extra whitespace and line breaks that might be left
+    cleanedText = cleanedText.replace(/\n\s*\n/g, '\n').trim();
+    
+    return cleanedText;
+  };
+
   // Split text into chunks at sentence boundaries
   const splitTextIntoChunks = (text: string, maxChunkLength: number = 200): string[] => {
     // First try to split by sentences
@@ -70,11 +84,16 @@ export const useTTS = () => {
       setIsPlaying(true);
       setError(null);
 
-      const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting chunked TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
+      // Clean the text before processing
+      const cleanedText = cleanTextForTTS(text);
+      console.log('Original text:', text.substring(0, 100));
+      console.log('Cleaned text:', cleanedText.substring(0, 100));
 
-      // Split text into chunks for faster initial playback
-      const chunks = splitTextIntoChunks(text);
+      const voice = overrideVoice || voiceSettings.voice || 'nova';
+      console.log('Starting chunked TTS playback with voice:', voice, 'for cleaned text:', cleanedText.substring(0, 50));
+
+      // Split cleaned text into chunks for faster initial playback
+      const chunks = splitTextIntoChunks(cleanedText);
       console.log('Split text into', chunks.length, 'chunks');
 
       // Generate audio for all chunks in parallel
@@ -137,8 +156,9 @@ export const useTTS = () => {
       setIsPlaying(false);
       setError(err instanceof Error ? err.message : 'TTS failed');
       
-      // Fallback to browser speech synthesis
-      const utterance = new SpeechSynthesisUtterance(text);
+      // Fallback to browser speech synthesis with cleaned text
+      const cleanedText = cleanTextForTTS(text);
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
