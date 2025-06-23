@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'nova', instructions, response_format = 'wav' } = await req.json();
+    const { text, voice = 'nova', instructions, response_format = 'mp3' } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
@@ -57,12 +57,12 @@ serve(async (req) => {
     }
 
     // Get the audio content type based on format
-    const contentType = response_format === 'wav' ? 'audio/wav' : 
-                       response_format === 'mp3' ? 'audio/mpeg' : 
+    const contentType = response_format === 'mp3' ? 'audio/mpeg' : 
+                       response_format === 'wav' ? 'audio/wav' : 
                        response_format === 'opus' ? 'audio/opus' :
                        response_format === 'aac' ? 'audio/aac' :
                        response_format === 'flac' ? 'audio/flac' :
-                       'audio/wav';
+                       'audio/mpeg';
 
     // Stream the audio response back to the client
     return new Response(response.body, {
