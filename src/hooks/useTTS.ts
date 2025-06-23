@@ -17,21 +17,30 @@ export const useTTS = () => {
       console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
       // Use the Supabase edge function which has access to the OpenAI API key
-      const { data, error: functionError } = await supabase.functions.invoke('openai-tts-stream', {
-        body: {
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/openai-tts-stream`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'apikey': supabase.supabaseKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           text: `Speak in a cheerful and positive tone. ${text}`,
           voice: voice,
           response_format: 'mp3',
           instructions: 'Speak in a cheerful and positive tone.'
-        },
+        }),
       });
 
-      if (functionError) {
-        console.error('Supabase function error:', functionError);
-        throw new Error(functionError.message);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       console.log('TTS response received from Supabase edge function');
+
+      // Get the response as a blob since it's binary audio data
+      const audioBlob = await response.blob();
+      console.log('Audio blob created, size:', audioBlob.size);
 
       // Create audio element and play the response
       const audio = new Audio();
@@ -58,14 +67,9 @@ export const useTTS = () => {
         URL.revokeObjectURL(audio.src);
       };
 
-      // Convert the response to a blob and create object URL
-      if (data instanceof ArrayBuffer) {
-        const blob = new Blob([data], { type: 'audio/mpeg' });
-        audio.src = URL.createObjectURL(blob);
-      } else {
-        // Handle other response formats if needed
-        throw new Error('Unexpected response format from TTS function');
-      }
+      // Create object URL from the blob
+      audio.src = URL.createObjectURL(audioBlob);
+      console.log('Audio src set, starting playback');
 
       // Start playback
       await audio.play();
