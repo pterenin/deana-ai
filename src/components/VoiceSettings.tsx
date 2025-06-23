@@ -49,7 +49,7 @@ export const VoiceSettings: React.FC = () => {
           
           <div className="space-y-2">
             <Label htmlFor="voice-select">Voice</Label>
-            <Select value={voiceSettings.voice} onValueChange={handleVoiceChange}>
+            <Select value={voiceSettings.voice || 'nova'} onValueChange={handleVoiceChange}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a voice" />
               </SelectTrigger>

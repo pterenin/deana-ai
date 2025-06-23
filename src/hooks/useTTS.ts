@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useChatStore } from '../store/chatStore';
 
 export const useTTS = () => {
@@ -13,15 +12,14 @@ export const useTTS = () => {
       setIsPlaying(true);
       setError(null);
 
-      const voice = overrideVoice || voiceSettings.voice || 'alloy';
+      const voice = overrideVoice || voiceSettings.voice || 'nova';
       console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
       // Call our Supabase edge function
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/openai-tts-stream`, {
+      const response = await fetch('/supabase/functions/v1/openai-tts-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
         },
         body: JSON.stringify({ text, voice }),
       });
@@ -58,7 +56,7 @@ export const useTTS = () => {
 
       // Start playing
       await audio.play();
-      console.log('Audio playback started');
+      console.log('Audio playbook started');
 
     } catch (err) {
       console.error('TTS error:', err);
