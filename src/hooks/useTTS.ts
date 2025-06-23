@@ -15,11 +15,12 @@ export const useTTS = () => {
       const voice = overrideVoice || voiceSettings.voice || 'nova';
       console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Call our Supabase edge function
-      const response = await fetch('/supabase/functions/v1/openai-tts-stream', {
+      // Call our Supabase edge function with correct URL
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-tts-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ text, voice }),
       });
