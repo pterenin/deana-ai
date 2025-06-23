@@ -16,28 +16,32 @@ export const useTTS = () => {
       const format = 'mp3'; // Using mp3 for better compatibility
       console.log('Starting streaming TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // 1) Kick off the fetch to your Supabase edge function
-      const res = await fetch(
-        'https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`,
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik'
-          },
-          body: JSON.stringify({ 
-            text, 
-            voice,
-            instructions: "Speak in a cheerful and positive tone.",
-            response_format: format
-          })
-        }
-      );
+      // Get OpenAI API key from environment or settings
+      // Note: In a production app, you'd want to handle this more securely
+      const openAIApiKey = import.meta.env.VITE_OPENAI_API_KEY || voiceSettings.apiKey;
+      
+      if (!openAIApiKey) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      // 1) Call OpenAI TTS API directly from frontend
+      const res = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openAIApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: `Speak in a cheerful and positive tone. ${text}`,
+          voice: voice,
+          response_format: format,
+        }),
+      });
 
       if (!res.ok) {
         const err = await res.text();
-        console.error('TTS API error:', err);
+        console.error('OpenAI TTS API error:', err);
         throw new Error(`TTS request failed: ${res.status} ${err}`);
       }
 
