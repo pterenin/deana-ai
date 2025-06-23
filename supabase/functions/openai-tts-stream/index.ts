@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'alloy' } = await req.json();
+    const { text, voice = 'nova' } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
@@ -25,7 +25,9 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Call OpenAI TTS API
+    console.log(`Streaming TTS for text: "${text.substring(0, 100)}..." with voice: ${voice}`);
+
+    // Call OpenAI TTS API with fastest model
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -33,30 +35,37 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: 'tts-1', // Fastest model for lowest latency
         input: text,
         voice: voice,
         response_format: 'mp3',
+        speed: 1.0, // Normal speed for best quality/latency balance
       }),
     });
 
+    // Handle API errors by passing through status and headers
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI TTS API error:', errorText);
-      throw new Error(`OpenAI TTS API error: ${response.status}`);
+      console.error('OpenAI TTS API error:', response.status, errorText);
+      return new Response(errorText, {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Stream the MP3 response back to the client
+    // Stream the MP3 response directly to client with proper headers
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'audio/mpeg',
+        'Transfer-Encoding': 'chunked',
         'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
 
   } catch (error) {
-    console.error('TTS error:', error);
+    console.error('TTS streaming error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
