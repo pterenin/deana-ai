@@ -1,6 +1,5 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useChatStore } from '../store/chatStore';
 
 export const useTTS = () => {
@@ -16,56 +15,59 @@ export const useTTS = () => {
       const voice = overrideVoice || voiceSettings.voice || 'nova';
       console.log('Starting streaming TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Call our Supabase edge function for streaming TTS
-      const { data, error: functionError } = await supabase.functions.invoke('openai-tts-stream', {
-        body: { 
+      // Call our Supabase edge function directly with fetch
+      const response = await fetch('https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik'
+        },
+        body: JSON.stringify({ 
           text, 
           voice,
           instructions: "Speak in a cheerful and positive tone.",
           response_format: "wav"
-        },
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        })
       });
 
-      if (functionError) {
-        throw new Error(`TTS API error: ${functionError.message}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('TTS API error:', errorText);
+        throw new Error(`TTS API error: ${response.status}`);
       }
 
-      if (data) {
-        console.log('Audio data received, starting playback');
-        
-        // Create audio from the streamed response
-        const audioBlob = new Blob([data], { type: 'audio/wav' });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
+      console.log('Audio data received, starting playback');
+      
+      // Create audio from the streamed response
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
 
-        audio.onloadstart = () => {
-          console.log('Audio loading started');
-        };
+      audio.onloadstart = () => {
+        console.log('Audio loading started');
+      };
 
-        audio.oncanplay = () => {
-          console.log('Audio can start playing');
-        };
+      audio.oncanplay = () => {
+        console.log('Audio can start playing');
+      };
 
-        audio.onended = () => {
-          console.log('Audio playback completed');
-          setIsPlaying(false);
-          URL.revokeObjectURL(audioUrl);
-        };
+      audio.onended = () => {
+        console.log('Audio playback completed');
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
 
-        audio.onerror = (event) => {
-          console.error('Audio playback error:', event);
-          setIsPlaying(false);
-          setError('Audio playback failed');
-          URL.revokeObjectURL(audioUrl);
-        };
+      audio.onerror = (event) => {
+        console.error('Audio playback error:', event);
+        setIsPlaying(false);
+        setError('Audio playback failed');
+        URL.revokeObjectURL(audioUrl);
+      };
 
-        // Start playing
-        await audio.play();
-        console.log('Audio playback started');
-      }
+      // Start playing
+      await audio.play();
+      console.log('Audio playback started');
 
     } catch (err) {
       console.error('TTS error:', err);
