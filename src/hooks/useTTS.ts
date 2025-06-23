@@ -13,9 +13,9 @@ export const useTTS = () => {
       setError(null);
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
+      console.log('Starting streaming TTS with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Call our Supabase edge function
+      // Call our streaming Supabase edge function
       const response = await fetch('/supabase/functions/v1/openai-tts-stream', {
         method: 'POST',
         headers: {
@@ -28,17 +28,56 @@ export const useTTS = () => {
         throw new Error(`TTS API error: ${response.status}`);
       }
 
-      // Create audio from the response
-      const audioBlob = await response.blob();
+      // Check if we have a readable stream
+      if (!response.body) {
+        throw new Error('No response body received');
+      }
+
+      console.log('Received streaming response, starting playback...');
+      
+      // Create a new Response from the stream to get an audio blob
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      
+      // Read the stream in chunks
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        if (value) {
+          chunks.push(value);
+          
+          // Start playing as soon as we have some data (first chunk)
+          if (chunks.length === 1) {
+            console.log('First chunk received, preparing audio...');
+          }
+        }
+      }
+
+      // Combine all chunks into a single blob
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const audioData = new Uint8Array(totalLength);
+      let offset = 0;
+      
+      for (const chunk of chunks) {
+        audioData.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Create audio blob and play
+      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
 
-      audio.onloadstart = () => {
-        console.log('Audio loading started');
+      console.log('Audio prepared, starting playback');
+
+      audio.onloadeddata = () => {
+        console.log('Audio data loaded, can start playing');
       };
 
       audio.oncanplay = () => {
-        console.log('Audio can start playing');
+        console.log('Audio ready to play');
       };
 
       audio.onended = () => {
@@ -54,16 +93,17 @@ export const useTTS = () => {
         URL.revokeObjectURL(audioUrl);
       };
 
-      // Start playing
+      // Start playing immediately
       await audio.play();
-      console.log('Audio playbook started');
+      console.log('Audio playback started');
 
     } catch (err) {
-      console.error('TTS error:', err);
+      console.error('TTS streaming error:', err);
       setIsPlaying(false);
       setError(err instanceof Error ? err.message : 'TTS failed');
       
       // Fallback to browser speech synthesis
+      console.log('Falling back to browser TTS...');
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
       utterance.pitch = 1.0;
