@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useTTS = () => {
   const { voiceSettings } = useChatStore();
@@ -13,43 +14,27 @@ export const useTTS = () => {
       setError(null);
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      const format = 'mp3'; // Using mp3 for better compatibility
-      console.log('Starting streaming TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
+      console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Get OpenAI API key from environment or settings
-      // Note: In a production app, you'd want to handle this more securely
-      const openAIApiKey = import.meta.env.VITE_OPENAI_API_KEY || voiceSettings.apiKey;
-      
-      if (!openAIApiKey) {
-        throw new Error('OpenAI API key not configured');
-      }
-
-      // 1) Call OpenAI TTS API directly from frontend
-      const res = await fetch('https://api.openai.com/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openAIApiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: `Speak in a cheerful and positive tone. ${text}`,
+      // Use the Supabase edge function which has access to the OpenAI API key
+      const { data, error: functionError } = await supabase.functions.invoke('openai-tts-stream', {
+        body: {
+          text: `Speak in a cheerful and positive tone. ${text}`,
           voice: voice,
-          response_format: format,
-        }),
+          response_format: 'mp3',
+          instructions: 'Speak in a cheerful and positive tone.'
+        },
       });
 
-      if (!res.ok) {
-        const err = await res.text();
-        console.error('OpenAI TTS API error:', err);
-        throw new Error(`TTS request failed: ${res.status} ${err}`);
+      if (functionError) {
+        console.error('Supabase function error:', functionError);
+        throw new Error(functionError.message);
       }
 
-      console.log('TTS response received, setting up streaming playback');
+      console.log('TTS response received from Supabase edge function');
 
-      // 2) Create an <audio> hooked up to a MediaSource for streaming
-      const mediaSource = new MediaSource();
-      const audio = new Audio(URL.createObjectURL(mediaSource));
+      // Create audio element and play the response
+      const audio = new Audio();
       
       // Set up audio event listeners
       audio.onloadstart = () => {
@@ -73,60 +58,17 @@ export const useTTS = () => {
         URL.revokeObjectURL(audio.src);
       };
 
-      // Prime playback
-      audio.play().catch(() => {});
+      // Convert the response to a blob and create object URL
+      if (data instanceof ArrayBuffer) {
+        const blob = new Blob([data], { type: 'audio/mpeg' });
+        audio.src = URL.createObjectURL(blob);
+      } else {
+        // Handle other response formats if needed
+        throw new Error('Unexpected response format from TTS function');
+      }
 
-      mediaSource.addEventListener('sourceopen', async () => {
-        try {
-          // 3) Add a SourceBuffer matching the MIME type
-          const mimeType = format === 'mp3'
-            ? 'audio/mpeg'
-            : format === 'opus'
-            ? 'audio/opus'
-            : format === 'aac'
-            ? 'audio/aac'
-            : 'audio/mpeg';
-          
-          const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-          console.log('SourceBuffer created with MIME type:', mimeType);
-
-          // 4) Stream the response body into the buffer
-          const reader = res.body?.getReader();
-          if (!reader) {
-            throw new Error('No response body reader available');
-          }
-
-          const pump = async () => {
-            try {
-              const { done, value } = await reader.read();
-              if (done) {
-                console.log('Streaming completed, ending MediaSource');
-                mediaSource.endOfStream();
-                return;
-              }
-              
-              // appendBuffer must wait until the buffer is free
-              await new Promise<void>((resolve) => {
-                sourceBuffer.addEventListener('updateend', () => resolve(), { once: true });
-                sourceBuffer.appendBuffer(value);
-              });
-              
-              // Continue pumping
-              pump();
-            } catch (pumpError) {
-              console.error('Error during streaming pump:', pumpError);
-              setIsPlaying(false);
-              setError('Streaming playback failed');
-            }
-          };
-          
-          pump();
-        } catch (sourceError) {
-          console.error('Error setting up MediaSource:', sourceError);
-          setIsPlaying(false);
-          setError('Failed to setup streaming playback');
-        }
-      });
+      // Start playback
+      await audio.play();
 
     } catch (err) {
       console.error('TTS error:', err);
