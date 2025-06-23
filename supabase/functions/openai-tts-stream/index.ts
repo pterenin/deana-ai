@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'nova' } = await req.json();
+    const { text, voice = 'alloy' } = await req.json();
 
     if (!text) {
       throw new Error('Text is required');
@@ -25,7 +25,7 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Call OpenAI TTS API with cheerful instructions
+    // Call OpenAI TTS API
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -37,7 +37,6 @@ serve(async (req) => {
         input: text,
         voice: voice,
         response_format: 'mp3',
-        instructions: "Speak in a cheerful and positive tone.",
       }),
     });
 
