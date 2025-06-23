@@ -17,18 +17,17 @@ export const useTTS = () => {
       console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
       // Use the Supabase edge function which has access to the OpenAI API key
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/openai-tts-stream`, {
+      const response = await fetch('https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: `Speak in a cheerful and positive tone. ${text}`,
+          text: text, // Send only the clean text without instructions
           voice: voice,
-          response_format: 'mp3',
-          instructions: 'Speak in a cheerful and positive tone.'
+          response_format: 'mp3'
         }),
       });
 
