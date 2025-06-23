@@ -39,7 +39,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isMuted: false,
   voiceSettings: {
-    voice: 'nova',
+    voice: 'alloy',
   },
   addMessage: (message) => {
     const newMessage: Message = {
