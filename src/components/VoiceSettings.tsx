@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
@@ -12,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 export const VoiceSettings: React.FC = () => {
   const { isMuted, toggleMute, voiceSettings, updateVoiceSettings } = useChatStore();
   const [isOpen, setIsOpen] = useState(false);
-  const [apiKey, setApiKey] = useState(voiceSettings.apiKey || '');
   const { toast } = useToast();
 
   const handleVoiceChange = (voice: string) => {
@@ -20,7 +18,6 @@ export const VoiceSettings: React.FC = () => {
   };
 
   const handleSave = () => {
-    updateVoiceSettings({ apiKey });
     setIsOpen(false);
     toast({
       title: "Settings saved",
@@ -39,29 +36,14 @@ export const VoiceSettings: React.FC = () => {
         <DialogHeader>
           <DialogTitle>Voice Settings</DialogTitle>
           <DialogDescription>
-            Configure your voice settings for the AI assistant. Audio is generated using OpenAI's TTS API directly from your browser.
+            Configure your voice settings for the AI assistant. Audio is generated using OpenAI's TTS API via our secure backend.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800 font-medium">✓ Direct OpenAI TTS</p>
-            <p className="text-xs text-blue-600 mt-1">
-              High-quality audio responses generated directly from your browser using OpenAI's text-to-speech API
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="api-key">OpenAI API Key</Label>
-            <Input
-              id="api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
-              className="font-mono text-sm"
-            />
-            <p className="text-xs text-gray-500">
-              Your API key is stored locally and used to call OpenAI directly from your browser
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-sm text-green-800 font-medium">✓ Secure OpenAI TTS</p>
+            <p className="text-xs text-green-600 mt-1">
+              High-quality audio responses generated securely using our backend service with OpenAI's text-to-speech API
             </p>
           </div>
           
