@@ -14,57 +14,58 @@ export const useTTS = () => {
       setError(null);
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
+      console.log('Starting streaming TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Call our Supabase edge function directly using fetch to get the raw audio response
-      const response = await fetch(`https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`,
-        },
-        body: JSON.stringify({ 
+      // Call our Supabase edge function for streaming TTS
+      const { data, error: functionError } = await supabase.functions.invoke('openai-tts-stream', {
+        body: { 
           text, 
           voice,
-          instructions: "Speak in a cheerful and positive tone."
-        }),
+          instructions: "Speak in a cheerful and positive tone.",
+          response_format: "wav"
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`TTS API error: ${response.status}`);
+      if (functionError) {
+        throw new Error(`TTS API error: ${functionError.message}`);
       }
 
-      // Get the audio blob directly from the response
-      const audioBlob = await response.blob();
-      console.log('Audio blob received, type:', audioBlob.type, 'size:', audioBlob.size);
-      
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+      if (data) {
+        console.log('Audio data received, starting playback');
+        
+        // Create audio from the streamed response
+        const audioBlob = new Blob([data], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
 
-      audio.onloadstart = () => {
-        console.log('Audio loading started');
-      };
+        audio.onloadstart = () => {
+          console.log('Audio loading started');
+        };
 
-      audio.oncanplay = () => {
-        console.log('Audio can start playing');
-      };
+        audio.oncanplay = () => {
+          console.log('Audio can start playing');
+        };
 
-      audio.onended = () => {
-        console.log('Audio playback completed');
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
+        audio.onended = () => {
+          console.log('Audio playback completed');
+          setIsPlaying(false);
+          URL.revokeObjectURL(audioUrl);
+        };
 
-      audio.onerror = (event) => {
-        console.error('Audio playback error:', event);
-        setIsPlaying(false);
-        setError('Audio playback failed');
-        URL.revokeObjectURL(audioUrl);
-      };
+        audio.onerror = (event) => {
+          console.error('Audio playback error:', event);
+          setIsPlaying(false);
+          setError('Audio playback failed');
+          URL.revokeObjectURL(audioUrl);
+        };
 
-      // Start playing
-      await audio.play();
-      console.log('Audio playback started');
+        // Start playing
+        await audio.play();
+        console.log('Audio playback started');
+      }
 
     } catch (err) {
       console.error('TTS error:', err);
