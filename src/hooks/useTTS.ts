@@ -8,70 +8,129 @@ export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Split text into chunks at sentence boundaries
+  const splitTextIntoChunks = (text: string, maxChunkLength: number = 200): string[] => {
+    // First try to split by sentences
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      const trimmedSentence = sentence.trim();
+      if (!trimmedSentence) continue;
+
+      // If adding this sentence would exceed max length, start a new chunk
+      if (currentChunk.length + trimmedSentence.length > maxChunkLength && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = trimmedSentence;
+      } else {
+        currentChunk += (currentChunk ? '. ' : '') + trimmedSentence;
+      }
+    }
+
+    // Add the last chunk if it has content
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    // If no chunks were created (no sentence boundaries), split by length
+    if (chunks.length === 0) {
+      for (let i = 0; i < text.length; i += maxChunkLength) {
+        chunks.push(text.slice(i, i + maxChunkLength));
+      }
+    }
+
+    return chunks;
+  };
+
+  const generateAudioForChunk = async (text: string, voice: string): Promise<Blob> => {
+    const response = await fetch('https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+        voice: voice,
+        response_format: 'mp3'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.blob();
+  };
+
   const playTTS = async (text: string, overrideVoice?: string) => {
     try {
       setIsPlaying(true);
       setError(null);
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
+      console.log('Starting chunked TTS playback with voice:', voice, 'for text:', text.substring(0, 50));
 
-      // Use the Supabase edge function which has access to the OpenAI API key
-      const response = await fetch('https://pqwrhinsjifmaaziyhqj.supabase.co/functions/v1/openai-tts-stream', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxd3JoaW5zamlmbWFheml5aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MDkxMzYsImV4cCI6MjA2NDQ4NTEzNn0.58ZzeBUIuWl2DVGpPj1B7EqWpI_GbGyzplNoMCL66ik',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: text, // Send only the clean text without instructions
-          voice: voice,
-          response_format: 'mp3'
-        }),
-      });
+      // Split text into chunks for faster initial playback
+      const chunks = splitTextIntoChunks(text);
+      console.log('Split text into', chunks.length, 'chunks');
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      console.log('TTS response received from Supabase edge function');
-
-      // Get the response as a blob since it's binary audio data
-      const audioBlob = await response.blob();
-      console.log('Audio blob created, size:', audioBlob.size);
-
-      // Create audio element and play the response
-      const audio = new Audio();
+      // Generate audio for all chunks in parallel
+      const audioPromises = chunks.map(chunk => generateAudioForChunk(chunk, voice));
       
-      // Set up audio event listeners
-      audio.onloadstart = () => {
-        console.log('Audio loading started');
+      // Start with the first chunk immediately
+      const firstAudioBlob = await audioPromises[0];
+      console.log('First audio chunk ready, size:', firstAudioBlob.size);
+
+      // Play the first chunk
+      const playChunk = (audioBlob: Blob, isLastChunk: boolean = false): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          const audio = new Audio();
+          
+          audio.onloadstart = () => {
+            console.log('Audio chunk loading started');
+          };
+
+          audio.oncanplay = () => {
+            console.log('Audio chunk can start playing');
+          };
+
+          audio.onended = () => {
+            console.log('Audio chunk playback completed');
+            URL.revokeObjectURL(audio.src);
+            if (isLastChunk) {
+              setIsPlaying(false);
+            }
+            resolve();
+          };
+
+          audio.onerror = (event) => {
+            console.error('Audio chunk playback error:', event);
+            URL.revokeObjectURL(audio.src);
+            reject(new Error('Audio playback failed'));
+          };
+
+          audio.src = URL.createObjectURL(audioBlob);
+          audio.play().catch(reject);
+        });
       };
 
-      audio.oncanplay = () => {
-        console.log('Audio can start playing');
-      };
+      // Play first chunk immediately
+      await playChunk(firstAudioBlob, chunks.length === 1);
 
-      audio.onended = () => {
-        console.log('Audio playback completed');
-        setIsPlaying(false);
-        URL.revokeObjectURL(audio.src);
-      };
-
-      audio.onerror = (event) => {
-        console.error('Audio playback error:', event);
-        setIsPlaying(false);
-        setError('Audio playback failed');
-        URL.revokeObjectURL(audio.src);
-      };
-
-      // Create object URL from the blob
-      audio.src = URL.createObjectURL(audioBlob);
-      console.log('Audio src set, starting playback');
-
-      // Start playback
-      await audio.play();
+      // Play remaining chunks sequentially
+      for (let i = 1; i < chunks.length; i++) {
+        try {
+          const audioBlob = await audioPromises[i];
+          console.log(`Chunk ${i + 1} audio ready, size:`, audioBlob.size);
+          await playChunk(audioBlob, i === chunks.length - 1);
+        } catch (chunkError) {
+          console.error(`Error with chunk ${i + 1}:`, chunkError);
+          // Continue with next chunk instead of failing completely
+        }
+      }
 
     } catch (err) {
       console.error('TTS error:', err);
