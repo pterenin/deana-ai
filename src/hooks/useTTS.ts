@@ -8,6 +8,8 @@ export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioQueueRef = useRef<Blob[]>([]);
+  const isPlayingQueueRef = useRef(false);
 
   // Clean text by removing [More Details] links and URLs
   const cleanTextForTTS = (text: string): string => {
@@ -81,6 +83,53 @@ export const useTTS = () => {
     return await response.blob();
   };
 
+  const playNextInQueue = async (): Promise<void> => {
+    if (audioQueueRef.current.length === 0 || isPlayingQueueRef.current) {
+      return;
+    }
+
+    isPlayingQueueRef.current = true;
+    const audioBlob = audioQueueRef.current.shift()!;
+
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      currentAudioRef.current = audio;
+      
+      audio.onloadstart = () => {
+        console.log('Audio chunk loading started');
+      };
+
+      audio.oncanplay = () => {
+        console.log('Audio chunk can start playing');
+      };
+
+      audio.onended = () => {
+        console.log('Audio chunk playback completed');
+        URL.revokeObjectURL(audio.src);
+        isPlayingQueueRef.current = false;
+        
+        // Check if there are more chunks to play
+        if (audioQueueRef.current.length > 0) {
+          playNextInQueue();
+        } else {
+          setIsPlaying(false);
+          currentAudioRef.current = null;
+        }
+        resolve();
+      };
+
+      audio.onerror = (event) => {
+        console.error('Audio chunk playback error:', event);
+        URL.revokeObjectURL(audio.src);
+        isPlayingQueueRef.current = false;
+        reject(new Error('Audio playback failed'));
+      };
+
+      audio.src = URL.createObjectURL(audioBlob);
+      audio.play().catch(reject);
+    });
+  };
+
   const playTTS = async (text: string, overrideVoice?: string) => {
     try {
       setIsPlaying(true);
@@ -98,62 +147,30 @@ export const useTTS = () => {
       const chunks = splitTextIntoChunks(cleanedText);
       console.log('Split text into', chunks.length, 'chunks');
 
-      // Generate audio for all chunks in parallel
-      const audioPromises = chunks.map(chunk => generateAudioForChunk(chunk, voice));
-      
-      // Start with the first chunk immediately
-      const firstAudioBlob = await audioPromises[0];
-      console.log('First audio chunk ready, size:', firstAudioBlob.size);
+      // Clear any existing queue
+      audioQueueRef.current = [];
+      isPlayingQueueRef.current = false;
 
-      // Play the first chunk
-      const playChunk = (audioBlob: Blob, isLastChunk: boolean = false): Promise<void> => {
-        return new Promise((resolve, reject) => {
-          const audio = new Audio();
-          currentAudioRef.current = audio;
-          
-          audio.onloadstart = () => {
-            console.log('Audio chunk loading started');
-          };
-
-          audio.oncanplay = () => {
-            console.log('Audio chunk can start playing');
-          };
-
-          audio.onended = () => {
-            console.log('Audio chunk playback completed');
-            URL.revokeObjectURL(audio.src);
-            if (isLastChunk) {
-              setIsPlaying(false);
-              currentAudioRef.current = null;
-            }
-            resolve();
-          };
-
-          audio.onerror = (event) => {
-            console.error('Audio chunk playback error:', event);
-            URL.revokeObjectURL(audio.src);
-            reject(new Error('Audio playback failed'));
-          };
-
-          audio.src = URL.createObjectURL(audioBlob);
-          audio.play().catch(reject);
-        });
-      };
-
-      // Play first chunk immediately
-      await playChunk(firstAudioBlob, chunks.length === 1);
-
-      // Play remaining chunks sequentially
-      for (let i = 1; i < chunks.length; i++) {
+      // Generate and queue audio chunks
+      chunks.forEach(async (chunk, index) => {
         try {
-          const audioBlob = await audioPromises[i];
-          console.log(`Chunk ${i + 1} audio ready, size:`, audioBlob.size);
-          await playChunk(audioBlob, i === chunks.length - 1);
+          console.log(`Generating audio for chunk ${index + 1}/${chunks.length}`);
+          const audioBlob = await generateAudioForChunk(chunk, voice);
+          console.log(`Chunk ${index + 1} audio ready, size:`, audioBlob.size);
+          
+          // Add to queue
+          audioQueueRef.current.push(audioBlob);
+          
+          // If this is the first chunk and nothing is playing yet, start playing
+          if (index === 0 && !isPlayingQueueRef.current) {
+            console.log('Starting playback with first chunk');
+            playNextInQueue();
+          }
         } catch (chunkError) {
-          console.error(`Error with chunk ${i + 1}:`, chunkError);
-          // Continue with next chunk instead of failing completely
+          console.error(`Error with chunk ${index + 1}:`, chunkError);
+          // Continue with other chunks instead of failing completely
         }
-      }
+      });
 
     } catch (err) {
       console.error('TTS error:', err);
@@ -178,6 +195,10 @@ export const useTTS = () => {
   };
 
   const stop = () => {
+    // Clear the queue
+    audioQueueRef.current = [];
+    isPlayingQueueRef.current = false;
+    
     // Stop current audio if playing
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
