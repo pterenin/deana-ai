@@ -5,12 +5,15 @@ import { useTTS } from './useTTS';
 
 export const useChat = () => {
   const { addMessage, setLoading, isMuted } = useChatStore();
-  const { playTTS } = useTTS();
+  const { playTTS, stop: stopTTS } = useTTS();
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = async (text: string) => {
     try {
       setError(null);
+      
+      // Stop any currently playing audio when sending a new message
+      stopTTS();
       
       // Add user message immediately
       addMessage({

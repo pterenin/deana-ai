@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -7,6 +7,7 @@ export const useTTS = () => {
   const { voiceSettings } = useChatStore();
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Clean text by removing [More Details] links and URLs
   const cleanTextForTTS = (text: string): string => {
@@ -107,6 +108,7 @@ export const useTTS = () => {
       const playChunk = (audioBlob: Blob, isLastChunk: boolean = false): Promise<void> => {
         return new Promise((resolve, reject) => {
           const audio = new Audio();
+          currentAudioRef.current = audio;
           
           audio.onloadstart = () => {
             console.log('Audio chunk loading started');
@@ -121,6 +123,7 @@ export const useTTS = () => {
             URL.revokeObjectURL(audio.src);
             if (isLastChunk) {
               setIsPlaying(false);
+              currentAudioRef.current = null;
             }
             resolve();
           };
@@ -174,6 +177,13 @@ export const useTTS = () => {
   };
 
   const stop = () => {
+    // Stop current audio if playing
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    
+    // Stop speech synthesis
     speechSynthesis.cancel();
     setIsPlaying(false);
   };
