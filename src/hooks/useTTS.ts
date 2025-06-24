@@ -8,8 +8,8 @@ export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioQueueRef = useRef<Blob[]>([]);
-  const isPlayingQueueRef = useRef(false);
+  const isPlayingRef = useRef(false);
+  const shouldStopRef = useRef(false);
 
   // Clean text by removing [More Details] links and URLs
   const cleanTextForTTS = (text: string): string => {
@@ -83,15 +83,13 @@ export const useTTS = () => {
     return await response.blob();
   };
 
-  const playNextInQueue = async (): Promise<void> => {
-    if (audioQueueRef.current.length === 0 || isPlayingQueueRef.current) {
-      return;
-    }
-
-    isPlayingQueueRef.current = true;
-    const audioBlob = audioQueueRef.current.shift()!;
-
+  const playAudioChunk = async (audioBlob: Blob): Promise<void> => {
     return new Promise((resolve, reject) => {
+      if (shouldStopRef.current) {
+        resolve();
+        return;
+      }
+
       const audio = new Audio();
       currentAudioRef.current = audio;
       
@@ -106,22 +104,12 @@ export const useTTS = () => {
       audio.onended = () => {
         console.log('Audio chunk playback completed');
         URL.revokeObjectURL(audio.src);
-        isPlayingQueueRef.current = false;
-        
-        // Check if there are more chunks to play
-        if (audioQueueRef.current.length > 0) {
-          playNextInQueue();
-        } else {
-          setIsPlaying(false);
-          currentAudioRef.current = null;
-        }
         resolve();
       };
 
       audio.onerror = (event) => {
         console.error('Audio chunk playback error:', event);
         URL.revokeObjectURL(audio.src);
-        isPlayingQueueRef.current = false;
         reject(new Error('Audio playback failed'));
       };
 
@@ -130,10 +118,43 @@ export const useTTS = () => {
     });
   };
 
+  const playChunksSequentially = async (chunks: string[], voice: string) => {
+    console.log(`Starting sequential playback of ${chunks.length} chunks`);
+    
+    for (let i = 0; i < chunks.length; i++) {
+      if (shouldStopRef.current) {
+        console.log('Playback stopped by user');
+        break;
+      }
+
+      try {
+        console.log(`Generating and playing chunk ${i + 1}/${chunks.length}`);
+        const audioBlob = await generateAudioForChunk(chunks[i], voice);
+        console.log(`Chunk ${i + 1} audio ready, size:`, audioBlob.size);
+        
+        if (!shouldStopRef.current) {
+          await playAudioChunk(audioBlob);
+        }
+      } catch (chunkError) {
+        console.error(`Error with chunk ${i + 1}:`, chunkError);
+        // Continue with next chunk instead of failing completely
+        continue;
+      }
+    }
+
+    // Playback finished
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    currentAudioRef.current = null;
+    console.log('All chunks played successfully');
+  };
+
   const playTTS = async (text: string, overrideVoice?: string) => {
     try {
       setIsPlaying(true);
       setError(null);
+      shouldStopRef.current = false;
+      isPlayingRef.current = true;
 
       // Clean the text before processing
       const cleanedText = cleanTextForTTS(text);
@@ -141,40 +162,19 @@ export const useTTS = () => {
       console.log('Cleaned text:', cleanedText.substring(0, 100));
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting chunked TTS playback with voice:', voice, 'for cleaned text:', cleanedText.substring(0, 50));
+      console.log('Starting sequential TTS playback with voice:', voice, 'for cleaned text:', cleanedText.substring(0, 50));
 
-      // Split cleaned text into chunks for faster initial playback
+      // Split cleaned text into chunks
       const chunks = splitTextIntoChunks(cleanedText);
       console.log('Split text into', chunks.length, 'chunks');
 
-      // Clear any existing queue
-      audioQueueRef.current = [];
-      isPlayingQueueRef.current = false;
-
-      // Generate and queue audio chunks
-      chunks.forEach(async (chunk, index) => {
-        try {
-          console.log(`Generating audio for chunk ${index + 1}/${chunks.length}`);
-          const audioBlob = await generateAudioForChunk(chunk, voice);
-          console.log(`Chunk ${index + 1} audio ready, size:`, audioBlob.size);
-          
-          // Add to queue
-          audioQueueRef.current.push(audioBlob);
-          
-          // If this is the first chunk and nothing is playing yet, start playing
-          if (index === 0 && !isPlayingQueueRef.current) {
-            console.log('Starting playback with first chunk');
-            playNextInQueue();
-          }
-        } catch (chunkError) {
-          console.error(`Error with chunk ${index + 1}:`, chunkError);
-          // Continue with other chunks instead of failing completely
-        }
-      });
+      // Play chunks sequentially - this will start playing the first chunk immediately
+      await playChunksSequentially(chunks, voice);
 
     } catch (err) {
       console.error('TTS error:', err);
       setIsPlaying(false);
+      isPlayingRef.current = false;
       setError(err instanceof Error ? err.message : 'TTS failed');
       
       // Fallback to browser speech synthesis with cleaned text
@@ -184,9 +184,13 @@ export const useTTS = () => {
       utterance.pitch = 1.0;
       utterance.volume = 0.9;
       
-      utterance.onend = () => setIsPlaying(false);
+      utterance.onend = () => {
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+      };
       utterance.onerror = () => {
         setIsPlaying(false);
+        isPlayingRef.current = false;
         setError('Speech synthesis failed');
       };
       
@@ -195,9 +199,9 @@ export const useTTS = () => {
   };
 
   const stop = () => {
-    // Clear the queue
-    audioQueueRef.current = [];
-    isPlayingQueueRef.current = false;
+    console.log('Stopping TTS playback');
+    shouldStopRef.current = true;
+    isPlayingRef.current = false;
     
     // Stop current audio if playing
     if (currentAudioRef.current) {
