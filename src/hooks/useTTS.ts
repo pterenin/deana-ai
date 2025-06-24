@@ -118,35 +118,113 @@ export const useTTS = () => {
     });
   };
 
-  const playChunksSequentially = async (chunks: string[], voice: string) => {
-    console.log(`Starting sequential playback of ${chunks.length} chunks`);
+  const playChunksWithOverlap = async (chunks: string[], voice: string) => {
+    console.log(`Starting overlapping playback of ${chunks.length} chunks`);
     
-    for (let i = 0; i < chunks.length; i++) {
-      if (shouldStopRef.current) {
-        console.log('Playback stopped by user');
-        break;
+    // Generate and play first chunk immediately
+    if (chunks.length === 0 || shouldStopRef.current) return;
+    
+    try {
+      console.log('Generating and playing first chunk');
+      const firstAudioBlob = await generateAudioForChunk(chunks[0], voice);
+      console.log('First chunk audio ready, size:', firstAudioBlob.size);
+      
+      if (shouldStopRef.current) return;
+      
+      // Start playing first chunk
+      const firstChunkPromise = playAudioChunk(firstAudioBlob);
+      
+      // If there are more chunks, start the overlapping process
+      if (chunks.length > 1) {
+        processRemainingChunks(chunks.slice(1), voice, firstChunkPromise);
+      } else {
+        // Only one chunk, wait for it to finish
+        await firstChunkPromise;
+        console.log('Single chunk playback completed');
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        currentAudioRef.current = null;
       }
+      
+    } catch (error) {
+      console.error('Error with first chunk:', error);
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      setError(error instanceof Error ? error.message : 'TTS failed');
+    }
+  };
 
+  const processRemainingChunks = async (remainingChunks: string[], voice: string, currentPlayback: Promise<void>) => {
+    let chunkIndex = 1; // We already processed chunk 0
+    let nextAudioPromise: Promise<Blob> | null = null;
+    let currentAudioPromise = currentPlayback;
+    
+    // Start generating the next chunk while the current one plays
+    if (remainingChunks.length > 0 && !shouldStopRef.current) {
+      console.log(`Pre-generating chunk ${chunkIndex + 1}`);
+      nextAudioPromise = generateAudioForChunk(remainingChunks[0], voice);
+    }
+    
+    while (chunkIndex < remainingChunks.length + 1 && !shouldStopRef.current) {
       try {
-        console.log(`Generating and playing chunk ${i + 1}/${chunks.length}`);
-        const audioBlob = await generateAudioForChunk(chunks[i], voice);
-        console.log(`Chunk ${i + 1} audio ready, size:`, audioBlob.size);
+        // Wait for current audio to finish
+        await currentAudioPromise;
         
-        if (!shouldStopRef.current) {
-          await playAudioChunk(audioBlob);
+        if (shouldStopRef.current) break;
+        
+        // If we have a pre-generated chunk, play it
+        if (nextAudioPromise && chunkIndex <= remainingChunks.length) {
+          console.log(`Playing pre-generated chunk ${chunkIndex + 1}`);
+          const audioBlob = await nextAudioPromise;
+          console.log(`Chunk ${chunkIndex + 1} audio ready, size:`, audioBlob.size);
+          
+          if (!shouldStopRef.current) {
+            // Start playing this chunk
+            currentAudioPromise = playAudioChunk(audioBlob);
+            
+            // Start generating the next chunk if there is one
+            if (chunkIndex < remainingChunks.length - 1) {
+              console.log(`Pre-generating chunk ${chunkIndex + 2}`);
+              nextAudioPromise = generateAudioForChunk(remainingChunks[chunkIndex + 1], voice);
+            } else {
+              nextAudioPromise = null;
+            }
+          }
         }
+        
+        chunkIndex++;
+        
       } catch (chunkError) {
-        console.error(`Error with chunk ${i + 1}:`, chunkError);
+        console.error(`Error with chunk ${chunkIndex + 1}:`, chunkError);
         // Continue with next chunk instead of failing completely
-        continue;
+        chunkIndex++;
+        
+        // Try to generate the next chunk if we failed
+        if (chunkIndex < remainingChunks.length && !shouldStopRef.current) {
+          try {
+            nextAudioPromise = generateAudioForChunk(remainingChunks[chunkIndex - 1], voice);
+          } catch (genError) {
+            console.error('Failed to generate replacement chunk:', genError);
+            nextAudioPromise = null;
+          }
+        }
       }
     }
-
+    
+    // Wait for the last chunk to finish
+    if (currentAudioPromise && !shouldStopRef.current) {
+      try {
+        await currentAudioPromise;
+      } catch (error) {
+        console.error('Error with final chunk:', error);
+      }
+    }
+    
     // Playback finished
     setIsPlaying(false);
     isPlayingRef.current = false;
     currentAudioRef.current = null;
-    console.log('All chunks played successfully');
+    console.log('All chunks played successfully with overlap');
   };
 
   const playTTS = async (text: string, overrideVoice?: string) => {
@@ -162,14 +240,14 @@ export const useTTS = () => {
       console.log('Cleaned text:', cleanedText.substring(0, 100));
 
       const voice = overrideVoice || voiceSettings.voice || 'nova';
-      console.log('Starting sequential TTS playback with voice:', voice, 'for cleaned text:', cleanedText.substring(0, 50));
+      console.log('Starting overlapping TTS playback with voice:', voice, 'for cleaned text:', cleanedText.substring(0, 50));
 
       // Split cleaned text into chunks
       const chunks = splitTextIntoChunks(cleanedText);
       console.log('Split text into', chunks.length, 'chunks');
 
-      // Play chunks sequentially - this will start playing the first chunk immediately
-      await playChunksSequentially(chunks, voice);
+      // Play chunks with overlap - this will start playing immediately
+      await playChunksWithOverlap(chunks, voice);
 
     } catch (err) {
       console.error('TTS error:', err);
