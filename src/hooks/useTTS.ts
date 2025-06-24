@@ -69,6 +69,7 @@ export const useTTS = () => {
       body: JSON.stringify({
         text: text,
         voice: voice,
+        instructions: "Speak in a cheerful and positive tone.",
         response_format: 'mp3'
       }),
     });
