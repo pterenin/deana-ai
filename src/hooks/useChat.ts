@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useChatStore } from '../store/chatStore';
 import { useTTS } from './useTTS';
@@ -51,12 +50,19 @@ export const useChat = () => {
               text: messageText,
             });
             
-            // Use OpenAI TTS for audio playback if not muted
+            // Release the input field immediately after API response
+            setLoading(false);
+            
+            // Use OpenAI TTS for audio playback if not muted (don't wait for it)
             if (!isMuted) {
               console.log('Playing TTS for response');
-              await playTTS(messageText);
+              playTTS(messageText);
             }
+          } else {
+            setLoading(false);
           }
+        } else {
+          setLoading(false);
         }
       } else {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -73,12 +79,13 @@ export const useChat = () => {
         text: errorMessage,
       });
       
-      // Use TTS for error message if not muted
-      if (!isMuted) {
-        await playTTS(errorMessage);
-      }
-    } finally {
+      // Release the input field after error handling
       setLoading(false);
+      
+      // Use TTS for error message if not muted (don't wait for it)
+      if (!isMuted) {
+        playTTS(errorMessage);
+      }
     }
   };
 
