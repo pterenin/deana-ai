@@ -37,7 +37,7 @@ serve(async (req) => {
 
     // Add instructions if provided
     if (instructions) {
-      requestBody.input = `${instructions} ${text}`;
+      requestBody.instructions = instructions;
     }
 
     // Call OpenAI TTS API for streaming
