@@ -19,13 +19,13 @@ const Landing = () => {
             <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-48 h-48 rounded-full mx-auto mb-8 object-cover shadow-lg" />
           </div>
           
-          <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">Your personal
+          <h2 className="md:text-6xl font-bold text-gray-900 mb-6 text-3xl">Your personal
 AI Assistent</h2>
           
           <p className="text-3xl md:text-4xl font-semibold text-gray-800 mb-12">
         </p>
           
-          <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">Artificial Intelegence design to help you in your everyday life</p>
+          <p className="text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed text-base">Artificial Intelegence design to help you in your everyday life</p>
           
           <Button onClick={handleGetStarted} size="lg" className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
             Let's go!
