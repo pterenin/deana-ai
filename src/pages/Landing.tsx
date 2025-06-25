@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -15,8 +16,8 @@ const Landing = () => {
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="text-center max-w-4xl mx-auto">
-          <div className="mb-8">
-            <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-48 h-48 rounded-full mx-auto mb-8 object-cover shadow-lg" />
+          <div className="mb-12">
+            <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-64 h-64 rounded-full mx-auto mb-8 object-cover shadow-lg" />
           </div>
           
           <h2 className="md:text-6xl font-bold text-gray-900 mb-6 text-3xl">Your personal
