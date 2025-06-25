@@ -1,58 +1,33 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import SpeechBubble from '@/components/SpeechBubble';
-
 const Landing = () => {
   const navigate = useNavigate();
-
   const handleGetStarted = () => {
     navigate('/chat');
   };
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
+  return <div className="min-h-screen bg-white flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
-        <img 
-          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
-          alt="Deana.AI" 
-          className="h-10 md:h-20 object-contain" 
-        />
+        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-10 md:h-20 object-contain" />
       </header>
 
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="text-center max-w-4xl mx-auto">
-          <div className="mb-12 relative">
-            {/* Speech Bubble positioned above and to the left of the image */}
-            <div className="absolute -top-16 left-1/2 transform -translate-x-3/4 z-10">
-              <SpeechBubble text="How can I help you?" />
-            </div>
-            
-            <img 
-              src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" 
-              alt="Deana AI" 
-              className="w-80 h-80 mx-auto mb-10 object-cover" 
-            />
+          <div className="mb-12">
+            <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-80 h-80 mx-auto mb--10 object-cover" />
           </div>
           
-          <h2 className="md:text-6xl font-bold text-gray-900 mb-6 text-3xl">
-            Your personal AI Assistant
-          </h2>
+          <h2 className="md:text-6xl font-bold text-gray-900 mb-6 text-3xl">Your personal
+AI Assistent</h2>
           
-          <p className="text-3xl md:text-4xl font-semibold text-gray-800 mb-12"></p>
+          <p className="text-3xl md:text-4xl font-semibold text-gray-800 mb-12">
+        </p>
           
-          <p className="text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed text-base">
-            Artificial Intelligence designed to help you in your everyday life
-          </p>
+          <p className="text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed text-base">Artificial Intelegence design to help you in your everyday life</p>
           
-          <Button 
-            onClick={handleGetStarted} 
-            size="lg" 
-            className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
-          >
+          <Button onClick={handleGetStarted} size="lg" className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
             Let's go!
           </Button>
         </div>
@@ -62,8 +37,6 @@ const Landing = () => {
       <footer className="p-6 text-center text-gray-500 text-sm">
         <p>Powered by AI • Ready to assist you 24/7</p>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
