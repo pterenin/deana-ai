@@ -16,12 +16,7 @@ const Landing = () => {
             </div>
           </div>
           <div>
-            <h1 className="text-xl font-medium text-gray-900">
-              Write with{' '}
-              <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent font-bold">
-                Deana.AI
-              </span>
-            </h1>
+            
           </div>
         </div>
       </header>
