@@ -45,7 +45,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="p-6 text-center text-gray-500 text-sm">
-        <p>Powered by AI • Ready to assist you 24/7</p>
+        
       </footer>
     </div>;
 };
