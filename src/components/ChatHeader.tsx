@@ -1,8 +1,11 @@
 
 import React from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Volume2, VolumeX } from 'lucide-react';
+import { useChatStore } from '../store/chatStore';
 
 export const ChatHeader: React.FC = () => {
+  const { isMuted, toggleMute } = useChatStore();
+
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-3">
       <div className="flex items-center justify-between max-w-4xl mx-auto">
@@ -23,6 +26,17 @@ export const ChatHeader: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
+          <button 
+            onClick={toggleMute}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label={isMuted ? "Enable sound" : "Disable sound"}
+          >
+            {isMuted ? (
+              <VolumeX size={20} className="text-gray-600" />
+            ) : (
+              <Volume2 size={20} className="text-gray-600" />
+            )}
+          </button>
           <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
             <Bell size={20} className="text-gray-600" />
           </button>
