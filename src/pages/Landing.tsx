@@ -37,7 +37,11 @@ AI Assistent</h2>
           
           <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">Artificial Intelegence design to help you in your everyday life</p>
           
-          <Button onClick={handleGetStarted} size="lg" className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 hover:from-purple-700 hover:via-pink-600 hover:to-orange-500 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+          <Button 
+            onClick={handleGetStarted} 
+            size="lg" 
+            className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
+          >
             Let's go!
           </Button>
         </div>
