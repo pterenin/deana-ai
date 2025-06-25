@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowUp, Mic, MicOff } from 'lucide-react';
+import { Paperclip, Mic, MicOff } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 
 interface ChatInputProps {
@@ -55,17 +55,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
   }, [input]);
 
   return (
-    <div className="border-t bg-white p-4">
-      <form onSubmit={handleSubmit} className="flex gap-3 items-end max-w-4xl mx-auto">
+    <div className="bg-white p-6 border-t">
+      <form onSubmit={handleSubmit} className="flex gap-4 items-end max-w-4xl mx-auto">
         <div className="flex-1 relative">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? "Listening..." : "Type your message or use voice input..."}
+            placeholder={isListening ? "Listening..." : "Ask Anything..."}
             disabled={disabled}
-            className={`min-h-[44px] max-h-32 resize-none pr-12 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+            className={`min-h-[56px] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 px-6 py-4 text-gray-700 placeholder-gray-500 ${
               isListening ? 'border-red-300 bg-red-50' : ''
             }`}
             aria-label="Chat message input"
@@ -75,29 +75,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
             <p className="text-xs text-red-500 mt-1">{error}</p>
           )}
         </div>
-        <Button
-          type="button"
-          size="sm"
-          onClick={toggleVoiceInput}
-          disabled={disabled}
-          className={`rounded-xl h-11 w-11 p-0 ${
-            isListening 
-              ? 'bg-red-500 hover:bg-red-600' 
-              : 'bg-gray-500 hover:bg-gray-600'
-          }`}
-          aria-label={isListening ? "Stop voice input" : "Start voice input"}
-        >
-          {isListening ? <MicOff size={20} /> : <Mic size={20} />}
-        </Button>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={!input.trim() || disabled}
-          className="rounded-xl h-11 w-11 p-0 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300"
-          aria-label="Send message"
-        >
-          <ArrowUp size={20} />
-        </Button>
+        
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {}}
+            disabled={disabled}
+            className="rounded-full h-12 w-12 p-0 bg-gray-100 hover:bg-gray-200 text-gray-600"
+            aria-label="Attach file"
+          >
+            <Paperclip size={20} />
+          </Button>
+          
+          <Button
+            type="button"
+            size="sm"
+            onClick={toggleVoiceInput}
+            disabled={disabled}
+            className={`rounded-full h-12 w-12 p-0 ${
+              isListening 
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : 'bg-gray-600 hover:bg-gray-700 text-white'
+            }`}
+            aria-label={isListening ? "Stop voice input" : "Start voice input"}
+          >
+            {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+          </Button>
+        </div>
       </form>
     </div>
   );

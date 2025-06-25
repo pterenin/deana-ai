@@ -1,43 +1,31 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Volume2, VolumeX, RotateCcw } from 'lucide-react';
-import { useChatStore } from '../store/chatStore';
-import { VoiceSettings } from './VoiceSettings';
+import { Bell } from 'lucide-react';
 
 export const ChatHeader: React.FC = () => {
-  const { isMuted, toggleMute, clearMessages } = useChatStore();
-
   return (
-    <div className="bg-white border-b border-gray-200 p-4">
-      <div className="max-w-4xl mx-auto flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Deana AI Assistant</h1>
-          <p className="text-sm text-gray-600">Ready to help you with voice and text</p>
+    <div className="bg-white border-b border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between max-w-4xl mx-auto">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-pink-500 flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-white/20 flex items-center justify-center">
+              <div className="w-3 h-3 border-2 border-white rounded-sm transform rotate-45"></div>
+            </div>
+          </div>
+          <div>
+            <h1 className="text-lg font-medium text-gray-900">
+              Write with{' '}
+              <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent font-bold">
+                Deana.AI
+              </span>
+            </h1>
+          </div>
         </div>
         
-        <div className="flex gap-2">
-          <VoiceSettings />
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleMute}
-            className="text-gray-600 hover:text-gray-900"
-            aria-label={isMuted ? 'Unmute voice' : 'Mute voice'}
-          >
-            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearMessages}
-            className="text-gray-600 hover:text-gray-900"
-            aria-label="Clear chat history"
-          >
-            <RotateCcw size={20} />
-          </Button>
+        <div className="flex items-center gap-3">
+          <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+            <Bell size={20} className="text-gray-600" />
+          </button>
         </div>
       </div>
     </div>
