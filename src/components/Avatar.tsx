@@ -11,7 +11,7 @@ export const Avatar: React.FC<AvatarProps> = ({ type }) => {
     return (
       <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
         <img 
-          src="/lovable-uploads/e38e5edc-2f3a-463d-b944-fb6ee7722e6b.png" 
+          src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" 
           alt="Deana AI" 
           className="w-full h-full object-cover"
         />
