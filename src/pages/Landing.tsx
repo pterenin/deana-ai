@@ -1,24 +1,15 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-
 const Landing = () => {
   const navigate = useNavigate();
-  
   const handleGetStarted = () => {
     navigate('/chat');
   };
-
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+  return <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
-        <img 
-          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
-          alt="Deana.AI" 
-          className="h-16 md:h-20 object-contain"
-        />
+        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-16 md:h-20 object-contain" />
       </header>
 
       {/* Main Content */}
@@ -32,16 +23,11 @@ const Landing = () => {
 AI Assistent</h2>
           
           <p className="text-3xl md:text-4xl font-semibold text-gray-800 mb-12">
-            It's Deana, What's up?
-          </p>
+        </p>
           
           <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">Artificial Intelegence design to help you in your everyday life</p>
           
-          <Button 
-            onClick={handleGetStarted} 
-            size="lg" 
-            className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
-          >
+          <Button onClick={handleGetStarted} size="lg" className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
             Let's go!
           </Button>
         </div>
@@ -51,8 +37,6 @@ AI Assistent</h2>
       <footer className="p-6 text-center text-gray-500 text-sm">
         <p>Powered by AI • Ready to assist you 24/7</p>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
