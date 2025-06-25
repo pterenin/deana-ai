@@ -15,28 +15,28 @@ export const Bubble: React.FC<BubbleProps> = ({ message, onAction }) => {
   
   return (
     <div 
-      className={`flex gap-3 mb-4 ${isBot ? 'justify-start' : 'justify-end'}`}
+      className={`flex gap-3 mb-6 ${isBot ? 'justify-start' : 'justify-end'}`}
       role="group"
       aria-label={`Message from ${message.from}`}
     >
       {isBot && <Avatar type="bot" />}
       
-      <div className={`max-w-[80%] ${isBot ? 'order-2' : 'order-1'}`}>
+      <div className={`max-w-[70%] ${isBot ? 'order-2' : 'order-1'}`}>
         <div
-          className={`px-4 py-3 rounded-2xl ${
+          className={`px-5 py-4 rounded-3xl ${
             isBot
-              ? 'bg-white border border-gray-200 shadow-sm'
-              : 'bg-blue-500 text-white ml-auto'
+              ? 'bg-gray-100 text-gray-900'
+              : 'bg-gray-700 text-white ml-auto rounded-br-lg'
           }`}
         >
           <div className={`prose prose-sm max-w-none ${isBot ? 'prose-gray' : 'prose-invert'}`}>
             <ReactMarkdown
               components={{
-                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
                 strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                 em: ({ children }) => <em className="italic">{children}</em>,
                 code: ({ children }) => (
-                  <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm">
+                  <code className="bg-gray-200 text-gray-800 px-1 py-0.5 rounded text-sm">
                     {children}
                   </code>
                 ),
@@ -51,7 +51,7 @@ export const Bubble: React.FC<BubbleProps> = ({ message, onAction }) => {
           <ActionButtons actions={message.actions} onAction={onAction} />
         )}
         
-        <div className={`text-xs text-gray-500 mt-1 ${isBot ? 'text-left' : 'text-right'}`}>
+        <div className={`text-xs text-gray-500 mt-2 ${isBot ? 'text-left' : 'text-right'}`}>
           {message.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>

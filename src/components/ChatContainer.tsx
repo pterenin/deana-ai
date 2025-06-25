@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Bubble } from './Bubble';
+import { WelcomeMessage } from './WelcomeMessage';
 import { useChatStore } from '../store/chatStore';
 
 interface ChatContainerProps {
@@ -23,12 +24,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ onAction }) => {
   return (
     <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto bg-gray-50 p-4"
+      className="flex-1 overflow-y-auto bg-white p-4"
       role="log"
       aria-live="polite"
       aria-label="Chat messages"
     >
       <div className="max-w-4xl mx-auto">
+        {messages.length === 0 && <WelcomeMessage />}
+        
         {messages.map((message) => (
           <Bubble
             key={message.id}
@@ -40,10 +43,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({ onAction }) => {
         {/* Simple loading indicator */}
         {isLoading && (
           <div className="flex gap-3 mb-4 justify-start">
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+              <img 
+                src="/lovable-uploads/e38e5edc-2f3a-463d-b944-fb6ee7722e6b.png" 
+                alt="Deana AI" 
+                className="w-full h-full object-cover"
+              />
             </div>
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-3 rounded-2xl">
+            <div className="bg-gray-100 px-5 py-4 rounded-3xl">
               <div className="flex gap-1">
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />

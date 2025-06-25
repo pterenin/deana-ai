@@ -12,7 +12,7 @@ const Index = () => {
   const { isLoading } = useChatStore();
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-white">
       <ChatHeader />
       
       <ChatContainer onAction={handleActionClick} />
