@@ -9,7 +9,7 @@ const Landing = () => {
   return <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
-        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-16 md:h-20 object-contain" />
+        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-10 md:h-20 object-contain" />
       </header>
 
       {/* Main Content */}
