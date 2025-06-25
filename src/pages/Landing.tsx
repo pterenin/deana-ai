@@ -18,7 +18,7 @@ const Landing = () => {
           <div className="mb-8 relative">
             {/* Portrait Image with Fade Effect */}
             <div className="relative inline-block">
-              <img src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" alt="Deana AI" className="w-80 h-80 mx-auto object-cover rounded-none" />
+              <img src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" alt="Deana AI" className="w-80 h-100 mx-auto object-cover rounded-none" />
               {/* White fade overlay at bottom */}
               <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
             </div>
