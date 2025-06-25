@@ -1,24 +1,15 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-
 const Landing = () => {
   const navigate = useNavigate();
-
   const handleGetStarted = () => {
     navigate('/chat');
   };
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
+  return <div className="min-h-screen bg-white flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
-        <img 
-          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
-          alt="Deana.AI" 
-          className="h-10 md:h-20 object-contain" 
-        />
+        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-10 md:h-20 object-contain" />
       </header>
 
       {/* Main Content */}
@@ -27,11 +18,7 @@ const Landing = () => {
           <div className="mb-8 relative">
             {/* Portrait Image with Fade Effect */}
             <div className="relative inline-block">
-              <img 
-                src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" 
-                alt="Deana AI" 
-                className="w-80 h-80 mx-auto object-cover rounded-none" 
-              />
+              <img src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" alt="Deana AI" className="w-80 h-80 mx-auto object-cover rounded-none" />
               {/* White fade overlay at bottom */}
               <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
             </div>
@@ -50,11 +37,7 @@ const Landing = () => {
             Artificial Intelligence designed to help you in your everyday life
           </p>
           
-          <Button 
-            onClick={handleGetStarted} 
-            size="lg" 
-            className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
-          >
+          <Button onClick={handleGetStarted} size="lg" className="text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 bg-[#232a41] text-sm py-[23px] px-[125px]">
             Let's go!
           </Button>
         </div>
@@ -64,8 +47,6 @@ const Landing = () => {
       <footer className="p-6 text-center text-gray-500 text-sm">
         <p>Powered by AI • Ready to assist you 24/7</p>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
