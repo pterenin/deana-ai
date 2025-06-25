@@ -12,14 +12,14 @@ export const ChatHeader: React.FC = () => {
               <div className="w-3 h-3 border-2 border-white rounded-sm transform rotate-45"></div>
             </div>
           </div>
-          <div>
-            <h1 className="text-lg font-medium text-gray-900">
-              Write with{' '}
-              <span className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent font-bold">
-                Deana.AI
-              </span>
-            </h1>
-          </div>
+        </div>
+        
+        <div className="flex-1 flex justify-center">
+          <img 
+            src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
+            alt="Deana.AI" 
+            className="h-8 object-contain" 
+          />
         </div>
         
         <div className="flex items-center gap-3">
