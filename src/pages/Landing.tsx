@@ -10,11 +10,7 @@ const Landing = () => {
       {/* Header */}
       <header className="p-6">
         <div className="flex items-center gap-3 max-w-6xl mx-auto">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-500 flex items-center justify-center">
-            <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">
-              <div className="w-2.5 h-2.5 border-2 border-white rounded-sm transform rotate-45"></div>
-            </div>
-          </div>
+          
           <div>
             <h1 className="text-xl font-medium text-gray-900">
               Write with{' '}
