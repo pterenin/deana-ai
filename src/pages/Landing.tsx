@@ -11,7 +11,7 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex flex-col">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
         <img 
@@ -25,7 +25,7 @@ const Landing = () => {
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="text-center max-w-4xl mx-auto">
           <div className="mb-8">
-            <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-32 h-32 rounded-full mx-auto mb-8 object-cover shadow-lg" />
+            <img src="/lovable-uploads/802cd2ff-ea60-4a9b-8e68-fc6517c9522c.png" alt="Deana AI" className="w-48 h-48 rounded-full mx-auto mb-8 object-cover shadow-lg" />
           </div>
           
           <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">Your personal
