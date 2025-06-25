@@ -1,24 +1,24 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+
 const Landing = () => {
   const navigate = useNavigate();
+  
   const handleGetStarted = () => {
     navigate('/chat');
   };
-  return <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex flex-col">
-      {/* Header */}
-      <header className="p-6">
-        <div className="flex items-center gap-3 max-w-6xl mx-auto">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-pink-500 flex items-center justify-center">
-            <div className="w-5 h-5 rounded bg-white/20 flex items-center justify-center">
-              <div className="w-2.5 h-2.5 border-2 border-white rounded-sm transform rotate-45"></div>
-            </div>
-          </div>
-          <div>
-            
-          </div>
-        </div>
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 flex flex-col">
+      {/* Header with Deana.AI Logo */}
+      <header className="p-6 flex justify-center">
+        <img 
+          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
+          alt="Deana.AI" 
+          className="h-16 md:h-20 object-contain"
+        />
       </header>
 
       {/* Main Content */}
@@ -47,6 +47,8 @@ AI Assistent</h2>
       <footer className="p-6 text-center text-gray-500 text-sm">
         <p>Powered by AI • Ready to assist you 24/7</p>
       </footer>
-    </div>;
+    </div>
+  );
 };
+
 export default Landing;
