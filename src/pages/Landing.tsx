@@ -1,24 +1,15 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-
 const Landing = () => {
   const navigate = useNavigate();
-
   const handleGetStarted = () => {
     navigate('/chat');
   };
-
-  return (
-    <div className="min-h-screen bg-white flex flex-col">
+  return <div className="min-h-screen bg-white flex flex-col">
       {/* Header with Deana.AI Logo */}
       <header className="p-6 flex justify-center">
-        <img 
-          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
-          alt="Deana.AI" 
-          className="h-10 md:h-20 object-contain" 
-        />
+        <img src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" alt="Deana.AI" className="h-10 md:h-20 object-contain" />
       </header>
 
       {/* Main Content */}
@@ -26,16 +17,9 @@ const Landing = () => {
         <div className="text-center max-w-4xl mx-auto">
           <div className="mb-12 relative">
             {/* Speech Bubble */}
-            <div className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-pink-500 text-white px-6 py-3 rounded-full text-lg font-medium">
-              How can I help you?
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-pink-500"></div>
-            </div>
             
-            <img 
-              src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" 
-              alt="Deana AI" 
-              className="w-80 h-80 mx-auto mb-10 object-cover rounded-none" 
-            />
+            
+            <img src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png" alt="Deana AI" className="w-80 h-80 mx-auto mb--10 object-cover rounded-none" />
           </div>
           
           <h2 className="md:text-6xl font-bold text-gray-900 mb-6 text-3xl">
@@ -48,11 +32,7 @@ const Landing = () => {
             Artificial Intelligence designed to help you in your everyday life
           </p>
           
-          <Button 
-            onClick={handleGetStarted} 
-            size="lg" 
-            className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0"
-          >
+          <Button onClick={handleGetStarted} size="lg" className="bg-slate-700 hover:bg-slate-800 text-white px-12 py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0">
             Let's go!
           </Button>
         </div>
@@ -62,8 +42,6 @@ const Landing = () => {
       <footer className="p-6 text-center text-gray-500 text-sm">
         <p>Powered by AI • Ready to assist you 24/7</p>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
