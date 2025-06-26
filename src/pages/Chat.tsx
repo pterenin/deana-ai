@@ -3,16 +3,19 @@ import React from 'react';
 import { ChatContainer } from '../components/ChatContainer';
 import { ChatInput } from '../components/ChatInput';
 import { ChatHeader } from '../components/ChatHeader';
+import { MobileLayout } from '../components/MobileLayout';
 import { useChat } from '../hooks/useChat';
 import { useChatStore } from '../store/chatStore';
+import { useMobile } from '../hooks/useMobile';
 import { Toaster } from '@/components/ui/toaster';
 
 const Chat = () => {
   const { sendMessage, handleActionClick, error } = useChat();
   const { isLoading } = useChatStore();
+  const { isMobile, isNative } = useMobile();
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <MobileLayout className={`${isMobile ? 'h-screen' : 'h-screen'} flex flex-col bg-white`}>
       <ChatHeader />
       
       <ChatContainer onAction={handleActionClick} />
@@ -29,7 +32,7 @@ const Chat = () => {
       )}
       
       <Toaster />
-    </div>
+    </MobileLayout>
   );
 };
 
