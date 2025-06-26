@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Paperclip, Mic, MicOff } from 'lucide-react';
+import { Send, Mic, MicOff } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 
 interface ChatInputProps {
@@ -80,17 +80,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
           <Button
             type="button"
             size="sm"
-            onClick={() => {}}
-            disabled={disabled}
-            className="rounded-full h-12 w-12 p-0 bg-gray-100 hover:bg-gray-200 text-gray-600"
-            aria-label="Attach file"
-          >
-            <Paperclip size={20} />
-          </Button>
-          
-          <Button
-            type="button"
-            size="sm"
             onClick={toggleVoiceInput}
             disabled={disabled}
             className={`rounded-full h-12 w-12 p-0 ${
@@ -101,6 +90,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
             aria-label={isListening ? "Stop voice input" : "Start voice input"}
           >
             {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+          </Button>
+          
+          <Button
+            type="submit"
+            size="sm"
+            disabled={disabled || !input.trim()}
+            className="rounded-full h-12 w-12 p-0 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+            aria-label="Send message"
+          >
+            <Send size={20} />
           </Button>
         </div>
       </form>
