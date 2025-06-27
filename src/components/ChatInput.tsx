@@ -5,7 +5,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Mic, MicOff } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { SpeechHelp } from './SpeechHelp';
-import { useMobile } from '../hooks/useMobile';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -15,7 +14,6 @@ interface ChatInputProps {
 export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = false }) => {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { isMobile, isNative } = useMobile();
   const { 
     isListening, 
     transcript, 
@@ -74,7 +72,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
   );
 
   return (
-    <div className={`bg-white border-t ${isMobile ? 'pb-safe' : ''}`}>
+    <div className="bg-white border-t">
       {showSpeechHelp && (
         <SpeechHelp
           error={error}
@@ -84,8 +82,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
         />
       )}
       
-      <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
-        <form onSubmit={handleSubmit} className={`flex gap-${isMobile ? '2' : '4'} items-end max-w-4xl mx-auto`}>
+      <div className="p-6">
+        <form onSubmit={handleSubmit} className="flex gap-4 items-end max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <Textarea
               ref={textareaRef}
@@ -94,7 +92,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
               onKeyDown={handleKeyDown}
               placeholder={isListening ? "Listening..." : "Ask Anything..."}
               disabled={disabled}
-              className={`min-h-[${isMobile ? '48px' : '56px'}] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 ${isMobile ? 'px-4 py-3 text-base' : 'px-6 py-4'} text-gray-700 placeholder-gray-500 ${
+              className={`min-h-[56px] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 px-6 py-4 text-gray-700 placeholder-gray-500 ${
                 isListening ? 'border-red-300 bg-red-50' : ''
               }`}
               aria-label="Chat message input"
@@ -111,24 +109,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
               size="sm"
               onClick={toggleVoiceInput}
               disabled={disabled}
-              className={`rounded-full ${isMobile ? 'h-10 w-10' : 'h-12 w-12'} p-0 ${
+              className={`rounded-full h-12 w-12 p-0 ${
                 isListening 
                   ? 'bg-red-500 hover:bg-red-600 text-white' 
                   : 'bg-gray-600 hover:bg-gray-700 text-white'
-              } touch-manipulation`}
+              }`}
               aria-label={isListening ? "Stop voice input" : "Start voice input"}
             >
-              {isListening ? <MicOff size={isMobile ? 16 : 20} /> : <Mic size={isMobile ? 16 : 20} />}
+              {isListening ? <MicOff size={20} /> : <Mic size={20} />}
             </Button>
             
             <Button
               type="submit"
               size="sm"
               disabled={disabled || !input.trim()}
-              className={`rounded-full ${isMobile ? 'h-10 w-10' : 'h-12 w-12'} p-0 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 touch-manipulation`}
+              className="rounded-full h-12 w-12 p-0 bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
               aria-label="Send message"
             >
-              <Send size={isMobile ? 16 : 20} />
+              <Send size={20} />
             </Button>
           </div>
         </form>
