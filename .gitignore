@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OAuth and test secrets
+oauth.env
+test-oauth.js
