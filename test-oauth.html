@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OAuth Test</title>
+  </head>
+  <body>
+    <h1>Google OAuth Test</h1>
+    <p>This will help us verify the OAuth configuration.</p>
+
+    <button onclick="testOAuth()">Test OAuth Flow</button>
+
+    <div id="result"></div>
+
+    <script>
+      function testOAuth() {
+        const clientId =
+          "565475271415-75vb447aacu3okrhs0g0ohec07t5m424.apps.googleusercontent.com";
+        const redirectUri = "http://localhost:3000/oauth2callback";
+        const scope = "openid email profile";
+
+        const authUrl =
+          `https://accounts.google.com/o/oauth2/v2/auth?` +
+          `client_id=${encodeURIComponent(clientId)}&` +
+          `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+          `response_type=code&` +
+          `scope=${encodeURIComponent(scope)}&` +
+          `state=test123`;
+
+        document.getElementById("result").innerHTML = `
+                <h3>OAuth URL:</h3>
+                <p><a href="${authUrl}" target="_blank">${authUrl}</a></p>
+                <p>Click the link above to test the OAuth flow.</p>
+                <p>If the redirect URI is correct, you should be redirected to: ${redirectUri}</p>
+            `;
+      }
+    </script>
+  </body>
+</html>

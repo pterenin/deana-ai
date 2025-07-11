@@ -1,4 +1,3 @@
-
 # Deana AI Chat Interface
 
 A modern, accessible chat interface built with React, TypeScript, and Tailwind CSS. Ready for backend integration and n8n workflow automation.
@@ -27,11 +26,13 @@ A modern, accessible chat interface built with React, TypeScript, and Tailwind C
 ## Getting Started
 
 1. **Install dependencies**:
+
    ```bash
    npm install
    ```
 
 2. **Start development server**:
+
    ```bash
    npm run dev
    ```
@@ -70,9 +71,9 @@ Replace the placeholder in `src/utils/api.ts`:
 
 ```typescript
 export const sendMessageToDeana = async (text: string): Promise<Message[]> => {
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: text }),
   });
   return response.json();
@@ -84,9 +85,9 @@ export const sendMessageToDeana = async (text: string): Promise<Message[]> => {
 Use the n8n webhook function in `src/utils/api.ts`:
 
 ```typescript
-await callN8nWebhook('https://your-n8n-instance.com/webhook/your-id', {
+await callN8nWebhook("https://your-n8n-instance.com/webhook/your-id", {
   message: text,
-  userId: 'user-123',
+  userId: "user-123",
   timestamp: new Date().toISOString(),
 });
 ```
@@ -98,11 +99,11 @@ Customize action handling in `src/utils/api.ts`:
 ```typescript
 export const handleActionClick = (actionId: string): void => {
   switch (actionId) {
-    case 'book-appointment':
+    case "book-appointment":
       // Trigger n8n workflow for booking
-      callN8nWebhook('/webhook/book-appointment', { actionId });
+      callN8nWebhook("/webhook/book-appointment", { actionId });
       break;
-    case 'get-weather':
+    case "get-weather":
       // Call weather API
       break;
   }
@@ -117,9 +118,9 @@ Customize voice synthesis in `src/store/chatStore.ts`:
 
 ```typescript
 const utterance = new SpeechSynthesisUtterance(message.text);
-utterance.rate = 0.9;        // Speech speed
-utterance.pitch = 1;         // Voice pitch
-utterance.volume = 0.8;      // Volume level
+utterance.rate = 0.9; // Speech speed
+utterance.pitch = 1; // Voice pitch
+utterance.volume = 0.8; // Volume level
 ```
 
 ### Message Types
@@ -129,12 +130,12 @@ Extend the Message interface in `src/store/chatStore.ts`:
 ```typescript
 export interface Message {
   id: string;
-  from: 'user' | 'bot';
+  from: "user" | "bot";
   text: string;
   actions?: { id: string; label: string }[];
   timestamp?: Date;
-  attachments?: File[];      // Add file support
-  metadata?: any;            // Add custom metadata
+  attachments?: File[]; // Add file support
+  metadata?: any; // Add custom metadata
 }
 ```
 
@@ -158,9 +159,57 @@ export interface Message {
 Create a `.env` file for configuration:
 
 ```env
+# Google OAuth Configuration
+VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
+VITE_GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+VITE_OAUTH_REDIRECT_URI=http://localhost:3000/oauth2callback
+
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_url_here
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# n8n Configuration
+VITE_N8N_BASE_URL=http://localhost:5678
+VITE_N8N_API_KEY=your_n8n_api_key_here
+
+# Other Configuration
 VITE_API_BASE_URL=https://your-api.com
 VITE_N8N_WEBHOOK_BASE=https://your-n8n.com/webhook
 ```
+
+### Google OAuth Setup
+
+To enable Google account connection:
+
+1. **Create a Google Cloud Project**:
+
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+
+2. **Enable Google APIs**:
+
+   - Enable Google Calendar API
+   - Enable Google People API (for contacts)
+   - Enable Google+ API (for profile)
+
+3. **Create OAuth 2.0 Credentials**:
+
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth 2.0 Client IDs"
+   - Set application type to "Web application"
+   - Add authorized redirect URIs:
+     - `http://localhost:5173` (for development)
+     - `https://yourdomain.com` (for production)
+
+4. **Set Environment Variables**:
+
+   - Copy your Client ID to `REACT_APP_GOOGLE_CLIENT_ID`
+   - Set `REACT_APP_OAUTH_REDIRECT_URI` to your redirect URI
+
+5. **Backend Integration**:
+   - The button will send the authorization code to `/api/google-calendar/auth`
+   - Implement this endpoint to exchange the code for access/refresh tokens
+   - Store tokens securely for future API calls
 
 ## Contributing
 
