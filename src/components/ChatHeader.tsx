@@ -1,10 +1,19 @@
-
-import React from 'react';
-import { Bell, Volume2, VolumeX } from 'lucide-react';
-import { useChatStore } from '../store/chatStore';
+import React from "react";
+import { Bell, Volume2, VolumeX, LogOut, User } from "lucide-react";
+import { useChatStore } from "../store/chatStore";
+import { useAuthStore } from "../store/authStore";
+import ConnectGoogleButton from "./ConnectGoogleButton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const ChatHeader: React.FC = () => {
   const { isMuted, toggleMute } = useChatStore();
+  const { user, logout } = useAuthStore();
 
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-3">
@@ -16,17 +25,17 @@ export const ChatHeader: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex-1 flex justify-center">
-          <img 
-            src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png" 
-            alt="Deana.AI" 
-            className="h-8 object-contain" 
+          <img
+            src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png"
+            alt="Deana.AI"
+            className="h-8 object-contain"
           />
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={toggleMute}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label={isMuted ? "Enable sound" : "Disable sound"}
@@ -40,6 +49,37 @@ export const ChatHeader: React.FC = () => {
           <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
             <Bell size={20} className="text-gray-600" />
           </button>
+
+          {/* User Menu */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 rounded-full">
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.name || user.email}
+                      className="h-6 w-6 rounded-full"
+                    />
+                  ) : (
+                    <User size={16} />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="text-sm">
+                  <User size={16} className="mr-2" />
+                  {user.email}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut size={16} className="mr-2" />
+                  Disconnect Google
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <ConnectGoogleButton />
+          )}
         </div>
       </div>
     </div>

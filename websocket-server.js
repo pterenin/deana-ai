@@ -1,131 +1,145 @@
-
-const WebSocket = require('ws');
-const http = require('http');
-const url = require('url');
+const WebSocket = require("ws");
+const http = require("http");
+const url = require("url");
 
 const server = http.createServer((req, res) => {
   // Handle HTTP requests
-  if (req.method === 'POST' && req.url === '/progress') {
-    let body = '';
-    
-    req.on('data', chunk => {
+  if (req.method === "POST" && req.url === "/progress") {
+    let body = "";
+
+    req.on("data", (chunk) => {
       body += chunk.toString();
     });
-    
-    req.on('end', () => {
+
+    req.on("end", () => {
       try {
         const progressData = JSON.parse(body);
-        console.log('Received progress update:', progressData);
-        
+        console.log("Received progress update:", progressData);
+
         // Broadcast progress to all connected WebSocket clients
-        wss.clients.forEach(client => {
+        wss.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(progressData));
           }
         });
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+
+        res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: true }));
       } catch (error) {
-        console.error('Error processing progress update:', error);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        console.error("Error processing progress update:", error);
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
       }
     });
   } else {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not found" }));
   }
 });
 
 const wss = new WebSocket.Server({ server });
 
-console.log('Starting WebSocket server on port 8080...');
+console.log("Starting WebSocket server on port 3000...");
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
+wss.on("connection", (ws) => {
+  console.log("Client connected");
 
-  ws.on('message', async (data) => {
+  ws.on("message", async (data) => {
     try {
       const message = JSON.parse(data.toString());
-      console.log('Received message:', message);
+      console.log("Received message:", message);
 
-      if (message.type === 'message') {
+      if (message.type === "message") {
         // Simulate processing with progress updates
         await simulateN8nWorkflow(ws, message.message);
       }
     } catch (error) {
-      console.error('Error processing message:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        message: 'Error processing your request'
-      }));
+      console.error("Error processing message:", error);
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          message: "Error processing your request",
+        })
+      );
     }
   });
 
-  ws.on('close', () => {
-    console.log('Client disconnected');
+  ws.on("close", () => {
+    console.log("Client disconnected");
   });
 
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
   });
 });
 
 async function simulateN8nWorkflow(ws, userMessage) {
   // Send initial progress
-  ws.send(JSON.stringify({
-    type: 'progress',
-    progress: 10,
-    message: 'Starting workflow...'
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "progress",
+      progress: 10,
+      message: "Starting workflow...",
+    })
+  );
 
   await sleep(1000);
 
   // Send progress updates
-  ws.send(JSON.stringify({
-    type: 'progress',
-    progress: 30,
-    message: 'Processing your request...'
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "progress",
+      progress: 30,
+      message: "Processing your request...",
+    })
+  );
 
   await sleep(1500);
 
-  ws.send(JSON.stringify({
-    type: 'progress',
-    progress: 60,
-    message: 'Analyzing data...'
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "progress",
+      progress: 60,
+      message: "Analyzing data...",
+    })
+  );
 
   await sleep(1000);
 
-  ws.send(JSON.stringify({
-    type: 'progress',
-    progress: 80,
-    message: 'Generating response...'
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "progress",
+      progress: 80,
+      message: "Generating response...",
+    })
+  );
 
   await sleep(1000);
 
   // Make actual HTTP request to n8n webhook
   try {
     const encodedMessage = encodeURIComponent(userMessage);
-    const response = await fetch(`https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `https://pterenin.app.n8n.cloud/webhook/request-assistence?message=${encodedMessage}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (response.ok) {
       const result = await response.json();
-      console.log('n8n response:', result);
+      console.log("n8n response:", result);
 
-      ws.send(JSON.stringify({
-        type: 'progress',
-        progress: 100,
-        message: 'Finalizing response...'
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "progress",
+          progress: 100,
+          message: "Finalizing response...",
+        })
+      );
 
       await sleep(500);
 
@@ -133,41 +147,51 @@ async function simulateN8nWorkflow(ws, userMessage) {
       if (Array.isArray(result) && result.length > 0) {
         const responseItem = result[0];
         const notification = responseItem.notification;
-        
+
         if (notification) {
-          ws.send(JSON.stringify({
-            type: 'complete',
-            message: notification.text,
-            data: {
-              audio: notification.audio
-            }
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "complete",
+              message: notification.text,
+              data: {
+                audio: notification.audio,
+              },
+            })
+          );
         } else {
           // Fallback format
-          ws.send(JSON.stringify({
-            type: 'complete',
-            message: responseItem.text || responseItem.output || 'Response received from n8n'
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "complete",
+              message:
+                responseItem.text ||
+                responseItem.output ||
+                "Response received from n8n",
+            })
+          );
         }
       }
     } else {
       throw new Error(`HTTP ${response.status}`);
     }
   } catch (error) {
-    console.error('Error calling n8n webhook:', error);
-    ws.send(JSON.stringify({
-      type: 'error',
-      message: 'Sorry, I encountered an error processing your request. Please try again.'
-    }));
+    console.error("Error calling n8n webhook:", error);
+    ws.send(
+      JSON.stringify({
+        type: "error",
+        message:
+          "Sorry, I encountered an error processing your request. Please try again.",
+      })
+    );
   }
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-server.listen(8080, () => {
-  console.log('WebSocket server listening on port 8080');
-  console.log('WebSocket: ws://localhost:8080');
-  console.log('HTTP Progress endpoint: http://localhost:8080/progress');
+server.listen(3000, () => {
+  console.log("WebSocket server listening on port 3000");
+  console.log("WebSocket: ws://localhost:3000");
+  console.log("HTTP Progress endpoint: http://localhost:3000/progress");
 });
