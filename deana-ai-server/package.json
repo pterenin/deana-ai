@@ -17,7 +17,6 @@
     "jsonwebtoken": "^9.0.2",
     "bcryptjs": "^2.4.3",
     "pg": "^8.11.3",
-    "ws": "^8.14.2",
     "dotenv": "^16.3.1",
     "node-fetch": "^3.3.2"
   },
@@ -28,7 +27,6 @@
     "express",
     "oauth",
     "postgresql",
-    "websocket",
     "jwt"
   ],
   "author": "Deana.AI",
