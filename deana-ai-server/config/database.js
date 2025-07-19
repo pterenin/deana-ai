@@ -48,9 +48,6 @@ export async function initializeDatabase() {
         token_type TEXT NOT NULL,
         scope TEXT NOT NULL,
         expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        n8n_calendar_credential_id TEXT,
-        n8n_gmail_credential_id TEXT,
-        n8n_contacts_credential_id TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         UNIQUE(user_id)

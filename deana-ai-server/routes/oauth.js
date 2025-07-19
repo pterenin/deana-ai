@@ -2,7 +2,6 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { pool } from "../config/database.js";
 import { config } from "../config/environment.js";
-import { createOrUpdateN8nCredential } from "../services/n8nService.js";
 import { generateToken } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -140,55 +139,6 @@ router.post("/google-oauth", async (req, res) => {
       throw error;
     } finally {
       client.release();
-    }
-
-    // Step 4: Create persistent n8n credentials for the user (Calendar, Gmail, Contacts)
-    let calendarCredId, gmailCredId, contactsCredId;
-    if (config.N8N_BASE_URL) {
-      try {
-        const baseCredData = {
-          clientId: config.GOOGLE_CLIENT_ID,
-          clientSecret: config.GOOGLE_CLIENT_SECRET,
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          scope: scope,
-          tokenType: token_type,
-          expiry_date: expiryDate.toISOString(),
-        };
-        calendarCredId = await createOrUpdateN8nCredential(
-          google_user_id,
-          "googleCalendarOAuth2Api",
-          baseCredData
-        );
-        gmailCredId = await createOrUpdateN8nCredential(
-          google_user_id,
-          "googleGmailOAuth2Api",
-          baseCredData
-        );
-        contactsCredId = await createOrUpdateN8nCredential(
-          google_user_id,
-          "googleContactsOAuth2Api",
-          baseCredData
-        );
-        // Store all credential IDs in your DB
-        await pool.query(
-          `UPDATE user_google_tokens
-           SET n8n_calendar_credential_id = $1,
-               n8n_gmail_credential_id = $2,
-               n8n_contacts_credential_id = $3
-           WHERE google_user_id = $4`,
-          [calendarCredId, gmailCredId, contactsCredId, google_user_id]
-        );
-        // Skip workflow update - credentials will be used by sub-workflows
-        console.log(
-          "Skipping workflow update - credentials will be used by sub-workflows"
-        );
-      } catch (error) {
-        console.warn(
-          "Error creating n8n credentials or patching workflow:",
-          error
-        );
-      }
     }
 
     // Generate JWT token
