@@ -13,9 +13,11 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  jwtToken: string | null;
   setUser: (user: User | null) => void;
   setAuthenticated: (authenticated: boolean) => void;
   setLoading: (loading: boolean) => void;
+  setJwtToken: (token: string | null) => void;
   logout: () => void;
 }
 
@@ -25,6 +27,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
+      jwtToken: null,
       setUser: (user) =>
         set({
           user,
@@ -33,10 +36,12 @@ export const useAuthStore = create<AuthState>()(
       setAuthenticated: (authenticated) =>
         set({ isAuthenticated: authenticated }),
       setLoading: (loading) => set({ isLoading: loading }),
+      setJwtToken: (token) => set({ jwtToken: token }),
       logout: () =>
         set({
           user: null,
           isAuthenticated: false,
+          jwtToken: null,
         }),
     }),
     {
@@ -44,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        jwtToken: state.jwtToken,
       }),
     }
   )

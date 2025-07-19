@@ -2,11 +2,12 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "../store/authStore";
+import { BACKEND_OAUTH_ENDPOINT } from "@/constants/apiConstants";
 
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { setUser, setLoading } = useAuthStore();
+  const { setUser, setLoading, setJwtToken } = useAuthStore();
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -43,7 +44,7 @@ export default function OAuthCallback() {
         });
 
         // Send the code to your Express OAuth server for token exchange
-        const response = await fetch("http://localhost:3001/google-oauth", {
+        const response = await fetch(BACKEND_OAUTH_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code }),
@@ -68,6 +69,11 @@ export default function OAuthCallback() {
             name: data.name,
             avatar_url: data.avatar_url,
           });
+
+          // Store JWT token if provided
+          if (data.jwt_token) {
+            setJwtToken(data.jwt_token);
+          }
         }
 
         toast({
@@ -91,7 +97,7 @@ export default function OAuthCallback() {
     };
 
     handleOAuthCallback();
-  }, [navigate, toast, setUser, setLoading]);
+  }, [navigate, toast, setUser, setLoading, setJwtToken]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

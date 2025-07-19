@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { BACKEND_OAUTH_ENDPOINT } from "@/constants/apiConstants";
 
 export default function ConnectGoogleButton() {
   const { toast } = useToast();

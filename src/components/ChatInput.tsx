@@ -1,41 +1,57 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Send, Mic, MicOff } from 'lucide-react';
-import { useSpeechToText } from '../hooks/useSpeechToText';
-import { SpeechHelp } from './SpeechHelp';
+import React, { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, Mic, MicOff } from "lucide-react";
+import { useSpeechToText } from "../hooks/useSpeechToText";
+import { SpeechHelp } from "./SpeechHelp";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = false }) => {
-  const [input, setInput] = useState('');
+export const ChatInput: React.FC<ChatInputProps> = ({
+  onSendMessage,
+  disabled = false,
+}) => {
+  const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { 
-    isListening, 
-    transcript, 
-    error, 
-    permissionStatus, 
-    startListening, 
-    stopListening, 
+  const {
+    isListening,
+    transcript,
+    error,
+    permissionStatus,
+    startListening,
+    stopListening,
     clearTranscript,
-    retryPermission 
+    retryPermission,
   } = useSpeechToText();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
-      onSendMessage(input.trim());
-      setInput('');
+      console.log("ChatInput: Sending message:", input.trim());
+
+      // Prevent sending if the input looks like it might be TTS feedback
+      const trimmedInput = input.trim();
+      if (
+        trimmedInput.length > 100 &&
+        trimmedInput.includes("Hello! If you need help")
+      ) {
+        console.log("ChatInput: Detected potential TTS feedback, ignoring");
+        setInput("");
+        clearTranscript();
+        return;
+      }
+
+      onSendMessage(trimmedInput);
+      setInput("");
       clearTranscript();
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -52,6 +68,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
   // Update input with transcript
   useEffect(() => {
     if (transcript) {
+      console.log("ChatInput: Setting input from transcript:", transcript);
       setInput(transcript);
     }
   }, [transcript]);
@@ -59,17 +76,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [input]);
 
-  const showSpeechHelp = error && (
-    error.includes('service-not-allowed') || 
-    error.includes('not-allowed') || 
-    !permissionStatus.isHttps || 
-    !permissionStatus.browserSupported
-  );
+  const showSpeechHelp =
+    error &&
+    (error.includes("service-not-allowed") ||
+      error.includes("not-allowed") ||
+      !permissionStatus.isHttps ||
+      !permissionStatus.browserSupported);
 
   return (
     <div className="bg-white border-t">
@@ -81,9 +98,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
           className="border-t-0"
         />
       )}
-      
+
       <div className="p-6">
-        <form onSubmit={handleSubmit} className="flex gap-4 items-end max-w-4xl mx-auto">
+        <form
+          onSubmit={handleSubmit}
+          className="flex gap-4 items-end max-w-4xl mx-auto"
+        >
           <div className="flex-1 relative">
             <Textarea
               ref={textareaRef}
@@ -93,7 +113,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
               placeholder={isListening ? "Listening..." : "Ask Anything..."}
               disabled={disabled}
               className={`min-h-[56px] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 px-6 py-4 text-gray-700 placeholder-gray-500 ${
-                isListening ? 'border-red-300 bg-red-50' : ''
+                isListening ? "border-red-300 bg-red-50" : ""
               }`}
               aria-label="Chat message input"
               rows={1}
@@ -102,7 +122,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
               <p className="text-xs text-red-500 mt-1">{error}</p>
             )}
           </div>
-          
+
           <div className="flex gap-2">
             <Button
               type="button"
@@ -110,15 +130,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled = 
               onClick={toggleVoiceInput}
               disabled={disabled}
               className={`rounded-full h-12 w-12 p-0 ${
-                isListening 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                isListening
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-gray-600 hover:bg-gray-700 text-white"
               }`}
-              aria-label={isListening ? "Stop voice input" : "Start voice input"}
+              aria-label={
+                isListening ? "Stop voice input" : "Start voice input"
+              }
             >
               {isListening ? <MicOff size={20} /> : <Mic size={20} />}
             </Button>
-            
+
             <Button
               type="submit"
               size="sm"
