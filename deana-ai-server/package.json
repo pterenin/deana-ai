@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "start:new": "node server-new.js",
     "dev": "nodemon server.js",
+    "dev:new": "nodemon server-new.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

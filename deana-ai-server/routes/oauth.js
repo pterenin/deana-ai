@@ -1,0 +1,226 @@
+import express from "express";
+import jwt from "jsonwebtoken";
+import { pool } from "../config/database.js";
+import { config } from "../config/environment.js";
+import { createOrUpdateN8nCredential } from "../services/n8nService.js";
+import { generateToken } from "../middleware/auth.js";
+
+const router = express.Router();
+
+// Google OAuth endpoint
+router.post("/google-oauth", async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ error: "Authorization code is required" });
+    }
+
+    // Debug: Log environment variables
+    console.log("Environment variables check:");
+    console.log(
+      "GOOGLE_CLIENT_ID:",
+      config.GOOGLE_CLIENT_ID ? "SET" : "NOT SET"
+    );
+    console.log(
+      "GOOGLE_CLIENT_SECRET:",
+      config.GOOGLE_CLIENT_SECRET ? "SET" : "NOT SET"
+    );
+    console.log("REDIRECT_URI:", config.REDIRECT_URI ? "SET" : "NOT SET");
+
+    if (
+      !config.GOOGLE_CLIENT_ID ||
+      !config.GOOGLE_CLIENT_SECRET ||
+      !config.REDIRECT_URI
+    ) {
+      return res
+        .status(500)
+        .json({ error: "Missing Google OAuth configuration" });
+    }
+
+    // Step 1: Exchange authorization code for tokens
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: config.GOOGLE_CLIENT_ID,
+        client_secret: config.GOOGLE_CLIENT_SECRET,
+        redirect_uri: config.REDIRECT_URI,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error("Google token exchange failed:", errorData);
+      return res.status(400).json({
+        error: "Failed to exchange authorization code for tokens",
+        details: errorData,
+      });
+    }
+
+    const tokenData = await tokenResponse.json();
+    const { access_token, refresh_token, expires_in, token_type, scope } =
+      tokenData;
+
+    // Calculate expiry date
+    const expiryDate = new Date();
+    expiryDate.setSeconds(expiryDate.getSeconds() + expires_in);
+
+    // Step 2: Get user info from Google
+    const userInfoResponse = await fetch(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      }
+    );
+
+    if (!userInfoResponse.ok) {
+      return res
+        .status(400)
+        .json({ error: "Failed to get user info from Google" });
+    }
+
+    const userInfo = await userInfoResponse.json();
+    const { id: google_user_id, email, name, picture } = userInfo;
+
+    // Step 3: Store user and tokens in database
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Insert or update user
+      const userResult = await client.query(
+        `INSERT INTO users (google_user_id, email, name, avatar_url)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (google_user_id)
+         DO UPDATE SET
+           email = EXCLUDED.email,
+           name = EXCLUDED.name,
+           avatar_url = EXCLUDED.avatar_url,
+           updated_at = NOW()
+         RETURNING id`,
+        [google_user_id, email, name, picture]
+      );
+
+      const userId = userResult.rows[0].id;
+
+      // Insert or update tokens
+      await client.query(
+        `INSERT INTO user_google_tokens
+         (user_id, google_user_id, access_token, refresh_token, token_type, scope, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (user_id)
+         DO UPDATE SET
+           access_token = EXCLUDED.access_token,
+           refresh_token = EXCLUDED.refresh_token,
+           token_type = EXCLUDED.token_type,
+           scope = EXCLUDED.scope,
+           expires_at = EXCLUDED.expires_at,
+           updated_at = NOW()`,
+        [
+          userId,
+          google_user_id,
+          access_token,
+          refresh_token,
+          token_type,
+          scope,
+          expiryDate,
+        ]
+      );
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    // Step 4: Create persistent n8n credentials for the user (Calendar, Gmail, Contacts)
+    let calendarCredId, gmailCredId, contactsCredId;
+    if (config.N8N_BASE_URL) {
+      try {
+        const baseCredData = {
+          clientId: config.GOOGLE_CLIENT_ID,
+          clientSecret: config.GOOGLE_CLIENT_SECRET,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          scope: scope,
+          tokenType: token_type,
+          expiry_date: expiryDate.toISOString(),
+        };
+        calendarCredId = await createOrUpdateN8nCredential(
+          google_user_id,
+          "googleCalendarOAuth2Api",
+          baseCredData
+        );
+        gmailCredId = await createOrUpdateN8nCredential(
+          google_user_id,
+          "googleGmailOAuth2Api",
+          baseCredData
+        );
+        contactsCredId = await createOrUpdateN8nCredential(
+          google_user_id,
+          "googleContactsOAuth2Api",
+          baseCredData
+        );
+        // Store all credential IDs in your DB
+        await pool.query(
+          `UPDATE user_google_tokens
+           SET n8n_calendar_credential_id = $1,
+               n8n_gmail_credential_id = $2,
+               n8n_contacts_credential_id = $3
+           WHERE google_user_id = $4`,
+          [calendarCredId, gmailCredId, contactsCredId, google_user_id]
+        );
+        // Skip workflow update - credentials will be used by sub-workflows
+        console.log(
+          "Skipping workflow update - credentials will be used by sub-workflows"
+        );
+      } catch (error) {
+        console.warn(
+          "Error creating n8n credentials or patching workflow:",
+          error
+        );
+      }
+    }
+
+    // Generate JWT token
+    const jwtToken = generateToken({
+      userId: google_user_id,
+      email,
+      name,
+      avatar_url: picture,
+    });
+
+    // Return success response
+    res.json({
+      success: true,
+      message: "Google Calendar connected successfully",
+      userId: google_user_id,
+      email,
+      name,
+      avatar_url: picture,
+      access_token,
+      refresh_token,
+      scope,
+      token_type,
+      expires_at: expiryDate.toISOString(),
+      jwt_token: jwtToken,
+    });
+  } catch (error) {
+    console.error("Error in google-oauth:", error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+export default router;
