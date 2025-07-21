@@ -7,7 +7,8 @@ import { BACKEND_OAUTH_ENDPOINT } from "@/constants/apiConstants";
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { setUser, setLoading, setJwtToken } = useAuthStore();
+  const { setUser, setLoading, setJwtToken, setGoogleConnected } =
+    useAuthStore();
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
@@ -69,6 +70,7 @@ export default function OAuthCallback() {
             name: data.name,
             avatar_url: data.avatar_url,
           });
+          setGoogleConnected(true);
 
           // Store JWT token if provided
           if (data.jwt_token) {
@@ -97,7 +99,7 @@ export default function OAuthCallback() {
     };
 
     handleOAuthCallback();
-  }, [navigate, toast, setUser, setLoading, setJwtToken]);
+  }, [navigate, toast, setUser, setLoading, setJwtToken, setGoogleConnected]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">
