@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../config/database.js";
 import { config } from "../config/environment.js";
 import { generateToken } from "../middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
