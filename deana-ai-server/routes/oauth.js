@@ -173,4 +173,34 @@ router.post("/google-oauth", async (req, res) => {
   }
 });
 
+// Disconnect Google account
+router.post("/google-disconnect", requireAuth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    // Get the refresh token from DB
+    const { rows } = await pool.query(
+      "SELECT refresh_token FROM user_google_tokens WHERE user_id = $1",
+      [userId]
+    );
+    if (!rows.length) {
+      return res.status(400).json({ error: "No Google account connected." });
+    }
+    const refreshToken = rows[0].refresh_token;
+    // Revoke the token with Google
+    await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `token=${encodeURIComponent(refreshToken)}`,
+    });
+    // Remove tokens from DB
+    await pool.query("DELETE FROM user_google_tokens WHERE user_id = $1", [
+      userId,
+    ]);
+    res.json({ success: true, message: "Google account disconnected." });
+  } catch (error) {
+    console.error("Error disconnecting Google account:", error);
+    res.status(500).json({ error: "Failed to disconnect Google account." });
+  }
+});
+
 export default router;
