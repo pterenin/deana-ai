@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { pool } from "../config/database.js";
 import { config } from "../config/environment.js";
 import { generateToken } from "../middleware/auth.js";
-import { requireAuth } from "../middleware/auth.js";
+import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -175,7 +175,7 @@ router.post("/google-oauth", async (req, res) => {
 });
 
 // Disconnect Google account
-router.post("/google-disconnect", requireAuth, async (req, res) => {
+router.post("/google-disconnect", authenticateToken, async (req, res) => {
   const userId = req.user.id;
   try {
     // Get the refresh token from DB
