@@ -4,6 +4,7 @@ import { pool } from "../config/database.js";
 import { config } from "../config/environment.js";
 import { generateToken } from "../middleware/auth.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { invalidateUserCache } from "./chat.js";
 
 const router = express.Router();
 
@@ -39,26 +40,55 @@ router.post("/google-oauth", async (req, res) => {
     }
 
     // Step 1: Exchange authorization code for tokens
+    const tokenParams = {
+      code,
+      client_id: config.GOOGLE_CLIENT_ID,
+      client_secret: config.GOOGLE_CLIENT_SECRET,
+      redirect_uri: config.REDIRECT_URI,
+      grant_type: "authorization_code",
+    };
+
+    // Debug: Log the parameters being sent to Google
+    console.log("Token exchange parameters:", {
+      ...tokenParams,
+      client_secret: "***HIDDEN***", // Don't log the secret
+    });
+
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        code,
-        client_id: config.GOOGLE_CLIENT_ID,
-        client_secret: config.GOOGLE_CLIENT_SECRET,
-        redirect_uri: config.REDIRECT_URI,
-        grant_type: "authorization_code",
-      }),
+      body: new URLSearchParams(tokenParams),
     });
+
+    console.log("Google token response status:", tokenResponse.status);
+    console.log(
+      "Google token response headers:",
+      Object.fromEntries(tokenResponse.headers.entries())
+    );
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      console.error("Google token exchange failed:", errorData);
+      console.error("Google token exchange failed:");
+      console.error("Status:", tokenResponse.status);
+      console.error("Status Text:", tokenResponse.statusText);
+      console.error("Response Body:", errorData);
+
+      // Try to parse as JSON for better error details
+      let parsedError;
+      try {
+        parsedError = JSON.parse(errorData);
+        console.error("Parsed Error:", parsedError);
+      } catch (e) {
+        console.error("Could not parse error as JSON");
+      }
+
       return res.status(400).json({
         error: "Failed to exchange authorization code for tokens",
         details: errorData,
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
       });
     }
 
@@ -135,6 +165,9 @@ router.post("/google-oauth", async (req, res) => {
       );
 
       await client.query("COMMIT");
+
+      // Invalidate cache for this user to ensure fresh data on next request
+      invalidateUserCache(google_user_id);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -175,13 +208,13 @@ router.post("/google-oauth", async (req, res) => {
 });
 
 // Disconnect Google account
-router.post("/google-disconnect", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
+router.post("/google-disconnect", async (req, res) => {
+  const googleUserId = req.body.userId || (req.user && req.user.id);
   try {
-    // Get the refresh token from DB
+    // Get the refresh token from DB using google_user_id
     const { rows } = await pool.query(
-      "SELECT refresh_token FROM user_google_tokens WHERE user_id = $1",
-      [userId]
+      "SELECT refresh_token FROM user_google_tokens WHERE google_user_id = $1",
+      [googleUserId]
     );
     if (!rows.length) {
       return res.status(400).json({ error: "No Google account connected." });
@@ -193,14 +226,83 @@ router.post("/google-disconnect", authenticateToken, async (req, res) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `token=${encodeURIComponent(refreshToken)}`,
     });
-    // Remove tokens from DB
-    await pool.query("DELETE FROM user_google_tokens WHERE user_id = $1", [
-      userId,
-    ]);
+    // Remove tokens from DB using google_user_id
+    await pool.query(
+      "DELETE FROM user_google_tokens WHERE google_user_id = $1",
+      [googleUserId]
+    );
+
+    // Invalidate user cache
+    invalidateUserCache(googleUserId);
+
     res.json({ success: true, message: "Google account disconnected." });
   } catch (error) {
     console.error("Error disconnecting Google account:", error);
     res.status(500).json({ error: "Failed to disconnect Google account." });
+  }
+});
+
+// Diagnostic endpoint to test OAuth configuration
+router.get("/oauth-diagnostic", async (req, res) => {
+  try {
+    console.log("=== OAuth Diagnostic ===");
+
+    // Check environment variables
+    const envCheck = {
+      GOOGLE_CLIENT_ID: !!config.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: !!config.GOOGLE_CLIENT_SECRET,
+      REDIRECT_URI: !!config.REDIRECT_URI,
+      GOOGLE_CLIENT_ID_FORMAT: config.GOOGLE_CLIENT_ID?.includes(
+        ".apps.googleusercontent.com"
+      ),
+    };
+
+    console.log("Environment Check:", envCheck);
+
+    // Test a simple OAuth discovery request
+    try {
+      const discoveryResponse = await fetch(
+        "https://accounts.google.com/.well-known/openid_configuration"
+      );
+      const discoveryData = await discoveryResponse.json();
+      console.log("Google OAuth Discovery:", discoveryData.token_endpoint);
+    } catch (error) {
+      console.error("OAuth Discovery failed:", error.message);
+    }
+
+    // Test if we can reach Google's token endpoint
+    try {
+      const testResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "invalid_test",
+        }),
+      });
+
+      console.log("Token endpoint reachable:", testResponse.status);
+      const testData = await testResponse.text();
+      console.log("Test response:", testData);
+    } catch (error) {
+      console.error("Token endpoint test failed:", error.message);
+    }
+
+    res.json({
+      message: "OAuth diagnostic completed",
+      environmentCheck: envCheck,
+      recommendations: [
+        "Check Google Cloud Console OAuth client configuration",
+        "Verify client is configured as 'Web application'",
+        "Ensure OAuth consent screen is published or you're in test users",
+        "Verify redirect URI matches exactly: " + config.REDIRECT_URI,
+        "Check if required APIs are enabled (Google+ API, etc.)",
+      ],
+    });
+  } catch (error) {
+    console.error("Diagnostic error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

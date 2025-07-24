@@ -1,6 +1,6 @@
 # Deana AI Chat Interface
 
-A modern, accessible chat interface built with React, TypeScript, and Tailwind CSS. Ready for backend integration and n8n workflow automation.
+A modern, accessible chat interface built with React, TypeScript, and Tailwind CSS. Ready for backend integration.
 
 ## Features
 
@@ -80,35 +80,7 @@ export const sendMessageToDeana = async (text: string): Promise<Message[]> => {
 };
 ```
 
-### n8n Workflow Integration
-
-Use the n8n webhook function in `src/utils/api.ts`:
-
-```typescript
-await callN8nWebhook("https://your-n8n-instance.com/webhook/your-id", {
-  message: text,
-  userId: "user-123",
-  timestamp: new Date().toISOString(),
-});
-```
-
 ### Action Button Handling
-
-Customize action handling in `src/utils/api.ts`:
-
-```typescript
-export const handleActionClick = (actionId: string): void => {
-  switch (actionId) {
-    case "book-appointment":
-      // Trigger n8n workflow for booking
-      callN8nWebhook("/webhook/book-appointment", { actionId });
-      break;
-    case "get-weather":
-      // Call weather API
-      break;
-  }
-};
-```
 
 ## Configuration
 
@@ -164,18 +136,6 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 VITE_GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 VITE_OAUTH_REDIRECT_URI=http://localhost:3000/oauth2callback
 
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_url_here
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
-
-# n8n Configuration
-VITE_N8N_BASE_URL=http://localhost:5678
-VITE_N8N_API_KEY=your_n8n_api_key_here
-
-# Other Configuration
-VITE_API_BASE_URL=https://your-api.com
-VITE_N8N_WEBHOOK_BASE=https://your-n8n.com/webhook
-```
 
 ### Google OAuth Setup
 
@@ -222,3 +182,4 @@ To enable Google account connection:
 ## License
 
 MIT License - see LICENSE file for details
+```

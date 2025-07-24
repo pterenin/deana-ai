@@ -4,7 +4,121 @@ import { config } from "../config/environment.js";
 
 const router = express.Router();
 
-// Chat endpoint that handles user-specific n8n calls
+// In-memory cache for user data and tokens
+const userCache = new Map();
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes TTL
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer before token expiry
+
+// Helper function to check if cached data is still valid
+function isCacheValid(cacheEntry) {
+  const now = Date.now();
+
+  // Check if cache entry has expired
+  if (now > cacheEntry.expiresAt) {
+    return false;
+  }
+
+  // Check if Google token is close to expiring (with 5 min buffer)
+  const tokenExpiryTime = new Date(cacheEntry.data.expires_at).getTime();
+  if (now > tokenExpiryTime - TOKEN_EXPIRY_BUFFER_MS) {
+    return false;
+  }
+
+  return true;
+}
+
+// Helper function to get user data (with caching)
+async function getUserData(googleUserId) {
+  // Check cache first
+  const cacheKey = `user_${googleUserId}`;
+  const cached = userCache.get(cacheKey);
+
+  if (cached && isCacheValid(cached)) {
+    console.log(`📦 Cache hit for user ${googleUserId}`);
+    return cached.data;
+  }
+
+  console.log(`🔍 Cache miss for user ${googleUserId}, querying database`);
+
+  // Query database
+  const userDataResult = await pool.query(
+    `SELECT
+      u.email,
+      ugt.access_token,
+      ugt.refresh_token,
+      ugt.scope,
+      ugt.token_type,
+      ugt.expires_at
+    FROM users u
+    JOIN user_google_tokens ugt ON u.google_user_id = ugt.google_user_id
+    WHERE u.google_user_id = $1`,
+    [googleUserId]
+  );
+
+  if (userDataResult.rows.length === 0) {
+    return null;
+  }
+
+  const userData = userDataResult.rows[0];
+
+  // Cache the result
+  userCache.set(cacheKey, {
+    data: userData,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+
+  console.log(`💾 Cached user data for ${googleUserId}`);
+  return userData;
+}
+
+// Helper function to invalidate user cache (call this when user disconnects)
+function invalidateUserCache(googleUserId) {
+  const cacheKey = `user_${googleUserId}`;
+  userCache.delete(cacheKey);
+  console.log(`🗑️ Invalidated cache for user ${googleUserId}`);
+}
+
+// Cleanup expired cache entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  let cleanedCount = 0;
+
+  for (const [key, entry] of userCache.entries()) {
+    if (now > entry.expiresAt) {
+      userCache.delete(key);
+      cleanedCount++;
+    }
+  }
+
+  if (cleanedCount > 0) {
+    console.log(`🧹 Cleaned ${cleanedCount} expired cache entries`);
+  }
+}, 10 * 60 * 1000);
+
+// Cache statistics endpoint for monitoring
+router.get("/cache-stats", (req, res) => {
+  const now = Date.now();
+  let activeEntries = 0;
+  let expiredEntries = 0;
+
+  for (const [key, entry] of userCache.entries()) {
+    if (now > entry.expiresAt) {
+      expiredEntries++;
+    } else {
+      activeEntries++;
+    }
+  }
+
+  res.json({
+    totalEntries: userCache.size,
+    activeEntries,
+    expiredEntries,
+    cacheHitRatio: "Check server logs for cache hit/miss details",
+    cacheTTL: `${CACHE_TTL_MS / 1000 / 60} minutes`,
+    tokenExpiryBuffer: `${TOKEN_EXPIRY_BUFFER_MS / 1000 / 60} minutes`,
+  });
+});
+
 router.post("/chat", async (req, res) => {
   try {
     const { text, googleUserId } = req.body;
@@ -22,26 +136,22 @@ router.post("/chat", async (req, res) => {
       });
     }
 
-    // Check if user has Google tokens
-    const tokenResult = await pool.query(
-      `SELECT access_token, refresh_token, scope, token_type, expires_at FROM user_google_tokens WHERE google_user_id = $1`,
-      [googleUserId]
-    );
+    // Get user data and Google tokens (with caching)
+    const userData = await getUserData(googleUserId);
 
-    if (tokenResult.rows.length === 0) {
+    if (!userData) {
       return res.status(400).json({
         error:
-          "No Google tokens found for user. Please reconnect your Google account.",
+          "No user data or Google tokens found. Please reconnect your Google account.",
       });
     }
-
-    const tokens = tokenResult.rows[0];
+    const userEmail = userData.email;
     const googleTokens = {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      scope: tokens.scope,
-      token_type: tokens.token_type,
-      expires_at: tokens.expires_at,
+      access_token: userData.access_token,
+      refresh_token: userData.refresh_token,
+      scope: userData.scope,
+      token_type: userData.token_type,
+      expires_at: userData.expires_at,
       client_id: config.GOOGLE_CLIENT_ID,
     };
 
@@ -50,7 +160,8 @@ router.post("/chat", async (req, res) => {
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for streaming
 
     try {
-      const sessionId = `user-${googleUserId}`;
+      const today = new Date().toISOString().split("T")[0]; // Gets YYYY-MM-DD format
+      const sessionId = `user-${googleUserId}-${today}`;
       const assistantResponse = await fetch(
         `http://localhost:3060/api/chat/stream`,
         {
@@ -59,6 +170,7 @@ router.post("/chat", async (req, res) => {
           body: JSON.stringify({
             message: text,
             sessionId: sessionId,
+            email: userEmail,
             creds: {
               access_token: googleTokens.access_token,
               refresh_token: googleTokens.refresh_token,
@@ -241,5 +353,8 @@ router.post("/chat", async (req, res) => {
     });
   }
 });
+
+// Export cache invalidation function for use in other routes
+export { invalidateUserCache };
 
 export default router;

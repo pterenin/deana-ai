@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { BACKEND_OAUTH_ENDPOINT } from "@/constants/apiConstants";
+import { BACKEND_OAUTH_ENDPOINT, BACKEND_URL } from "@/constants/apiConstants";
 import { useAuthStore } from "../store/authStore";
 
 export default function ConnectGoogleButton() {
@@ -9,6 +9,7 @@ export default function ConnectGoogleButton() {
   const googleConnected = useAuthStore((s) => s.googleConnected);
   const setGoogleConnected = useAuthStore((s) => s.setGoogleConnected);
   const setUser = useAuthStore((s) => s.setUser);
+  const user = useAuthStore((s) => s.user);
 
   const handleGoogleLogin = () => {
     const clientId =
@@ -23,6 +24,7 @@ export default function ConnectGoogleButton() {
       "openid",
       "email",
       "profile",
+      "https://mail.google.com/",
       "https://www.googleapis.com/auth/contacts.readonly",
       "https://www.googleapis.com/auth/contacts.other.readonly",
     ].join(" ");
@@ -42,10 +44,11 @@ export default function ConnectGoogleButton() {
 
   const handleDisconnect = async () => {
     try {
-      const res = await fetch("/google-disconnect", {
+      const res = await fetch(`${BACKEND_URL}/google-disconnect`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id }),
       });
       if (res.ok) {
         setGoogleConnected(false);
