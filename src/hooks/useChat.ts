@@ -3,7 +3,7 @@ import { useChatStore } from "../store/chatStore";
 import { useTTS } from "./useTTS";
 import { useSpeechToText } from "./useSpeechToText";
 import { useAuthStore } from "../store/authStore";
-import { BACKEND_CHAT_ENDPOINT } from "@/constants/apiConstants";
+import { BACKEND_CHAT_ENDPOINT, BACKEND_URL } from "@/constants/apiConstants";
 
 export const useChat = () => {
   const {
@@ -59,16 +59,41 @@ export const useChat = () => {
         text: "",
       });
 
+      // Fetch user accounts to get secondary Google user ID if available
+      let secondaryGoogleUserId = null;
+      try {
+        const accountsResponse = await fetch(
+          `${BACKEND_URL}/user-accounts/${user.google_user_id}`
+        );
+        if (accountsResponse.ok) {
+          const accountsData = await accountsResponse.json();
+          if (
+            accountsData.accounts.secondary &&
+            accountsData.accounts.secondary.google_user_id
+          ) {
+            secondaryGoogleUserId =
+              accountsData.accounts.secondary.google_user_id;
+          }
+        }
+      } catch (error) {
+        console.log("Could not fetch secondary account info:", error);
+      }
+
       // Call the backend /chat endpoint with streaming
+      const chatPayload = {
+        text,
+        googleUserId: user.google_user_id,
+        ...(secondaryGoogleUserId && { secondaryGoogleUserId }),
+      };
+
+      console.log("Sending chat payload:", chatPayload);
+
       const response = await fetch(BACKEND_CHAT_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          text,
-          googleUserId: user.google_user_id,
-        }),
+        body: JSON.stringify(chatPayload),
       });
 
       if (response.ok) {

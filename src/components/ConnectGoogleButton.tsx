@@ -12,34 +12,8 @@ export default function ConnectGoogleButton() {
   const user = useAuthStore((s) => s.user);
 
   const handleGoogleLogin = () => {
-    const clientId =
-      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-      "565475271415-75vb447aacu3okrhs0g0ohec07t5m424.apps.googleusercontent.com";
-    const redirectUri =
-      import.meta.env.VITE_OAUTH_REDIRECT_URI ||
-      "http://localhost:3000/oauth2callback";
-
-    const scope = [
-      "https://www.googleapis.com/auth/calendar",
-      "openid",
-      "email",
-      "profile",
-      "https://mail.google.com/",
-      "https://www.googleapis.com/auth/contacts.readonly",
-      "https://www.googleapis.com/auth/contacts.other.readonly",
-    ].join(" ");
-
-    const authUrl =
-      `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${encodeURIComponent(clientId)}&` +
-      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `response_type=code&` +
-      `scope=${encodeURIComponent(scope)}&` +
-      `access_type=offline&` +
-      `prompt=consent`;
-
-    // Redirect to Google OAuth
-    window.location.href = authUrl;
+    // Redirect to settings page for account management
+    window.location.href = "/settings";
   };
 
   const handleDisconnect = async () => {
@@ -128,7 +102,7 @@ export default function ConnectGoogleButton() {
           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
         />
       </svg>
-      Connect Google Account
+      Manage Google Accounts
     </Button>
   );
 }

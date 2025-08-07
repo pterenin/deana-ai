@@ -44,11 +44,29 @@ export default function OAuthCallback() {
           description: "Processing your Google account connection...",
         });
 
+        // Get connection details from localStorage (set by Settings page)
+        const connectionDetails = localStorage.getItem(
+          "oauth_connection_details"
+        );
+        const {
+          accountType = "primary",
+          title = "Primary Account",
+          currentUserId = null,
+        } = connectionDetails ? JSON.parse(connectionDetails) : {};
+
+        // Clear the connection details
+        localStorage.removeItem("oauth_connection_details");
+
         // Send the code to your Express OAuth server for token exchange
         const response = await fetch(BACKEND_OAUTH_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({
+            code,
+            accountType,
+            title,
+            currentUserId,
+          }),
         });
 
         if (!response.ok) {

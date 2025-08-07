@@ -18,16 +18,17 @@ function isCacheValid(cacheEntry) {
     return false;
   }
 
-  // Check if Google token is close to expiring (with 5 min buffer)
-  const tokenExpiryTime = new Date(cacheEntry.data.expires_at).getTime();
-  if (now > tokenExpiryTime - TOKEN_EXPIRY_BUFFER_MS) {
-    return false;
+  // Check if any Google token is close to expiring (with 5 min buffer)
+  if (cacheEntry.earliestTokenExpiry) {
+    if (now > cacheEntry.earliestTokenExpiry - TOKEN_EXPIRY_BUFFER_MS) {
+      return false;
+    }
   }
 
   return true;
 }
 
-// Helper function to get user data (with caching)
+// Helper function to get user data (with caching) - now supports dual accounts
 async function getUserData(googleUserId) {
   // Check cache first
   const cacheKey = `user_${googleUserId}`;
@@ -40,18 +41,26 @@ async function getUserData(googleUserId) {
 
   console.log(`🔍 Cache miss for user ${googleUserId}, querying database`);
 
-  // Query database
+  // Query database for both primary and secondary accounts
   const userDataResult = await pool.query(
     `SELECT
-      u.email,
+      u.email as primary_user_email,
+      u.name as primary_user_name,
+      u.avatar_url as primary_user_avatar,
+      ugt.account_type,
+      ugt.title,
+      ugt.email,
+      ugt.name,
+      ugt.avatar_url,
       ugt.access_token,
       ugt.refresh_token,
       ugt.scope,
       ugt.token_type,
       ugt.expires_at
     FROM users u
-    JOIN user_google_tokens ugt ON u.google_user_id = ugt.google_user_id
-    WHERE u.google_user_id = $1`,
+    JOIN user_google_tokens ugt ON u.id = ugt.user_id
+    WHERE u.google_user_id = $1
+    ORDER BY ugt.account_type`,
     [googleUserId]
   );
 
@@ -59,15 +68,56 @@ async function getUserData(googleUserId) {
     return null;
   }
 
-  const userData = userDataResult.rows[0];
+  // Organize accounts by type
+  const userData = {
+    user: {
+      google_user_id: googleUserId,
+      email: userDataResult.rows[0].primary_user_email,
+      name: userDataResult.rows[0].primary_user_name,
+      avatar_url: userDataResult.rows[0].primary_user_avatar,
+    },
+    accounts: {
+      primary: null,
+      secondary: null,
+    },
+  };
 
-  // Cache the result
+  userDataResult.rows.forEach((row) => {
+    userData.accounts[row.account_type] = {
+      title: row.title,
+      email: row.email,
+      name: row.name,
+      avatar_url: row.avatar_url,
+      access_token: row.access_token,
+      refresh_token: row.refresh_token,
+      scope: row.scope,
+      token_type: row.token_type,
+      expires_at: row.expires_at,
+    };
+  });
+
+  // Cache the result (find earliest expiry time for cache validation)
+  let earliestExpiry = null;
+  Object.values(userData.accounts).forEach((account) => {
+    if (account && account.expires_at) {
+      const expiryTime = new Date(account.expires_at).getTime();
+      if (!earliestExpiry || expiryTime < earliestExpiry) {
+        earliestExpiry = expiryTime;
+      }
+    }
+  });
+
   userCache.set(cacheKey, {
     data: userData,
     expiresAt: Date.now() + CACHE_TTL_MS,
+    earliestTokenExpiry: earliestExpiry,
   });
 
-  console.log(`💾 Cached user data for ${googleUserId}`);
+  console.log(
+    `💾 Cached user data for ${googleUserId} with ${
+      Object.keys(userData.accounts).filter((k) => userData.accounts[k]).length
+    } accounts`
+  );
   return userData;
 }
 
@@ -121,7 +171,7 @@ router.get("/cache-stats", (req, res) => {
 
 router.post("/chat", async (req, res) => {
   try {
-    const { text, googleUserId } = req.body;
+    const { text, googleUserId, secondaryGoogleUserId } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -141,19 +191,44 @@ router.post("/chat", async (req, res) => {
 
     if (!userData) {
       return res.status(400).json({
-        error:
-          "No user data or Google tokens found. Please reconnect your Google account.",
+        error: "No user data found. Please connect your Google account.",
       });
     }
-    const userEmail = userData.email;
-    const googleTokens = {
-      access_token: userData.access_token,
-      refresh_token: userData.refresh_token,
-      scope: userData.scope,
-      token_type: userData.token_type,
-      expires_at: userData.expires_at,
-      client_id: config.GOOGLE_CLIENT_ID,
-    };
+
+    // Check if primary account is connected (required for chat)
+    if (!userData.accounts.primary) {
+      return res.status(400).json({
+        error:
+          "Primary Google account is required for chat. Please connect your primary account first.",
+      });
+    }
+
+    const userEmail = userData.user.email;
+    const primaryAccount = userData.accounts.primary;
+    const secondaryAccount = userData.accounts.secondary;
+
+    // Log the accounts being sent to streaming API
+    console.log("Chat request - Primary account:", {
+      email: primaryAccount.email,
+      title: primaryAccount.title,
+      has_tokens: !!primaryAccount.access_token,
+    });
+
+    if (secondaryAccount) {
+      console.log("Chat request - Secondary account:", {
+        email: secondaryAccount.email,
+        title: secondaryAccount.title,
+        has_tokens: !!secondaryAccount.access_token,
+      });
+    } else {
+      console.log("Chat request - No secondary account");
+    }
+
+    if (secondaryGoogleUserId) {
+      console.log(
+        `Secondary Google User ID received: ${secondaryGoogleUserId}`
+      );
+    }
 
     // Call the new streaming agent API endpoint
     const controller = new AbortController();
@@ -171,11 +246,32 @@ router.post("/chat", async (req, res) => {
             message: text,
             sessionId: sessionId,
             email: userEmail,
-            creds: {
-              access_token: googleTokens.access_token,
-              refresh_token: googleTokens.refresh_token,
-              expires_at: googleTokens.expires_at,
+            primary_account: {
+              email: primaryAccount.email,
+              title: primaryAccount.title,
+              creds: {
+                access_token: primaryAccount.access_token,
+                refresh_token: primaryAccount.refresh_token,
+                expires_at: primaryAccount.expires_at,
+                client_id: config.GOOGLE_CLIENT_ID,
+              },
             },
+            secondary_account: secondaryAccount
+              ? {
+                  email: secondaryAccount.email,
+                  title: secondaryAccount.title,
+                  creds: {
+                    access_token: secondaryAccount.access_token,
+                    refresh_token: secondaryAccount.refresh_token,
+                    expires_at: secondaryAccount.expires_at,
+                    client_id: config.GOOGLE_CLIENT_ID,
+                  },
+                }
+              : {
+                  email: null,
+                  title: null,
+                  creds: {},
+                },
           }),
           signal: controller.signal,
         }

@@ -6,9 +6,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import Landing from "./pages/Landing";
 import Chat from "./pages/Chat";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import OAuthCallback from "./pages/OAuthCallback";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ChatProtectedRoute } from "./components/ChatProtectedRoute";
 import { AuthCheck } from "./components/AuthCheck";
 
 const queryClient = new QueryClient();
@@ -27,11 +29,12 @@ const App = () => (
             <Route
               path="/chat"
               element={
-                <ProtectedRoute>
+                <ChatProtectedRoute>
                   <Chat />
-                </ProtectedRoute>
+                </ChatProtectedRoute>
               }
             />
+            <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
