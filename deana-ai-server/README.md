@@ -64,9 +64,6 @@ Express server providing Google OAuth, chat streaming (SSE), and OpenAI TTS prox
    # CORS (frontend origin)
    CORS_ORIGIN=http://localhost:3000
 
-   # (optional) Supabase migration
-   SUPABASE_URL=...
-   SUPABASE_ANON_KEY=...
    ```
 
 4. Start the server:
