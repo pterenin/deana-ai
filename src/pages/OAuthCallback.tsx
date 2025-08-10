@@ -101,8 +101,8 @@ export default function OAuthCallback() {
           description: "Your Google account has been successfully connected.",
         });
 
-        // Redirect to chat page
-        navigate("/chat");
+        // Redirect to settings to reflect connection state
+        navigate("/settings");
       } catch (error) {
         console.error("Error exchanging code for tokens:", error);
         toast({

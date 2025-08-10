@@ -1,7 +1,6 @@
 import React from "react";
 import { ChatContainer } from "../components/ChatContainer";
 import { ChatInput } from "../components/ChatInput";
-import { ChatHeader } from "../components/ChatHeader";
 import { useChat } from "../hooks/useChat";
 import { useChatStore } from "../store/chatStore";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,9 +10,7 @@ const Chat = () => {
   const { isLoading } = useChatStore();
 
   return (
-    <div className="h-screen flex flex-col bg-white">
-      <ChatHeader />
-
+    <div className="h-screen flex flex-col bg-white pt-14">
       <ChatContainer onAction={handleActionClick} />
 
       <ChatInput onSendMessage={sendMessage} disabled={isLoading} />

@@ -1,6 +1,8 @@
 import express from "express";
 import { pool } from "../config/database.js";
 import { config } from "../config/environment.js";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
 
 const router = express.Router();
 
@@ -8,6 +10,26 @@ const router = express.Router();
 const userCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes TTL
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer before token expiry
+
+// Rate limiting for /chat
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 chat requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const ChatSchema = z.object({
+  text: z.string().min(1).max(8000),
+  googleUserId: z.string().min(5).max(128),
+  secondaryGoogleUserId: z.string().min(5).max(128).optional(),
+  phone: z
+    .string()
+    .regex(/^\+[1-9]\d{7,14}$/)
+    .optional(),
+  timezone: z.string().min(1).max(64).optional(), // optionally add IANA validation
+  clientNowISO: z.string().datetime().optional(),
+});
 
 // Helper function to check if cached data is still valid
 function isCacheValid(cacheEntry) {
@@ -169,22 +191,24 @@ router.get("/cache-stats", (req, res) => {
   });
 });
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", chatLimiter, async (req, res) => {
+  let sseStarted = false;
   try {
-    const { text, googleUserId, secondaryGoogleUserId } = req.body;
-
-    if (!text) {
-      return res.status(400).json({
-        error: "Missing required field: text",
-      });
+    const parsed = ChatSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid request", details: parsed.error.flatten() });
     }
 
-    if (!googleUserId) {
-      return res.status(400).json({
-        error:
-          "Missing required field: googleUserId. Please connect your Google account first.",
-      });
-    }
+    const {
+      text,
+      googleUserId,
+      secondaryGoogleUserId,
+      phone,
+      timezone,
+      clientNowISO,
+    } = parsed.data;
 
     // Get user data and Google tokens (with caching)
     const userData = await getUserData(googleUserId);
@@ -204,6 +228,7 @@ router.post("/chat", async (req, res) => {
     }
 
     const userEmail = userData.user.email;
+    const userName = userData.user.name;
     const primaryAccount = userData.accounts.primary;
     const secondaryAccount = userData.accounts.secondary;
 
@@ -230,24 +255,36 @@ router.post("/chat", async (req, res) => {
       );
     }
 
-    // Call the new streaming agent API endpoint
+    // Call the streaming agent API endpoint
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for streaming
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+    // Abort upstream if client disconnects
+    req.on("close", () => {
+      try {
+        controller.abort();
+      } catch {}
+    });
 
     try {
-      const today = new Date().toISOString().split("T")[0]; // Gets YYYY-MM-DD format
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
       const sessionId = `user-${googleUserId}-${today}`;
       const assistantResponse = await fetch(
-        `http://localhost:3060/api/chat/stream`,
+        `${config.AGENT_BASE_URL}/api/chat/stream`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: text,
-            sessionId: sessionId,
+            sessionId,
             email: userEmail,
+            name: userName,
+            phone,
+            timezone,
+            clientNowISO,
             primary_account: {
               email: primaryAccount.email,
+              name: primaryAccount.name,
               title: primaryAccount.title,
               creds: {
                 access_token: primaryAccount.access_token,
@@ -267,11 +304,7 @@ router.post("/chat", async (req, res) => {
                     client_id: config.GOOGLE_CLIENT_ID,
                   },
                 }
-              : {
-                  email: null,
-                  title: null,
-                  creds: {},
-                },
+              : null,
           }),
           signal: controller.signal,
         }
@@ -290,10 +323,15 @@ router.post("/chat", async (req, res) => {
         });
       }
 
-      // Handle streaming response
-      if (!assistantResponse.ok) {
-        throw new Error(`HTTP error! status: ${assistantResponse.status}`);
+      // Set up streaming response headers
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      if (typeof res.flushHeaders === "function") {
+        res.flushHeaders();
       }
+      sseStarted = true;
 
       const reader = assistantResponse.body?.getReader();
       if (!reader) {
@@ -303,110 +341,82 @@ router.post("/chat", async (req, res) => {
       const decoder = new TextDecoder();
       let buffer = "";
       let finalMessage = "";
-      let isComplete = false;
-
-      // Set up streaming response headers
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("Access-Control-Allow-Origin", "*");
 
       while (true) {
         const { done, value } = await reader.read();
-
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-
-        // Process complete SSE messages
         const lines = buffer.split("\n");
-        buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
+        buffer = lines.pop() || "";
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              switch (data.type) {
-                case "thinking":
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "thinking",
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-
-                case "status":
-                  console.log("📊 Status update:", data.content);
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "status",
-                      content: data.content,
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-
-                case "progress":
-                  console.log("📊 Progress update:", data.content);
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "progress",
-                      content: data.content,
-                      data: data.data,
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-
-                case "response":
-                  console.log("💬 Agent response:", data.content);
-                  finalMessage = data.content;
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "response",
-                      content: data.content,
-                      alternatives: data.alternatives,
-                      conflict: data.conflict,
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-
-                case "complete":
-                  console.log("✅ Agent finished processing");
-                  isComplete = true;
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "complete",
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-
-                case "error":
-                  console.log("❌ Error:", data.content);
-                  res.write(
-                    `data: ${JSON.stringify({
-                      type: "error",
-                      content: data.content,
-                      timestamp: new Date().toISOString(),
-                    })}\n\n`
-                  );
-                  break;
-              }
-            } catch (e) {
-              console.log("Raw SSE data:", line);
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            switch (data.type) {
+              case "thinking":
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "thinking",
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
+              case "status":
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "status",
+                    content: data.content,
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
+              case "progress":
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "progress",
+                    content: data.content,
+                    data: data.data,
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
+              case "response":
+                finalMessage = data.content;
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "response",
+                    content: data.content,
+                    alternatives: data.alternatives,
+                    conflict: data.conflict,
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
+              case "complete":
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "complete",
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
+              case "error":
+                res.write(
+                  `data: ${JSON.stringify({
+                    type: "error",
+                    content: data.content,
+                    timestamp: new Date().toISOString(),
+                  })}\n\n`
+                );
+                break;
             }
-          }
+          } catch {}
         }
       }
 
-      // Log the chat interaction
       await pool.query(
         `INSERT INTO ai_chat_logs (user_question, ai_response, user_agent, user_ip)
-       VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)`,
         [
           text,
           finalMessage || "No response message found",
@@ -415,7 +425,6 @@ router.post("/chat", async (req, res) => {
         ]
       );
 
-      // Send final response for compatibility with React app
       res.write(
         `data: ${JSON.stringify({
           type: "final",
@@ -423,30 +432,43 @@ router.post("/chat", async (req, res) => {
           text: finalMessage || "No response message found",
         })}\n\n`
       );
-
       res.end();
       return;
     } catch (fetchError) {
       clearTimeout(timeoutId);
-
-      if (fetchError.name === "AbortError") {
-        console.error("Assistant request timed out after 30 seconds");
-        return res.status(504).json({
-          error:
-            "Assistant service is taking too long to respond. Please try again.",
-        });
+      if (sseStarted) {
+        res.write(
+          `data: ${JSON.stringify({
+            type: "error",
+            content: "Assistant connection error",
+            details: (fetchError && fetchError.message) || "terminated",
+            timestamp: new Date().toISOString(),
+          })}\n\n`
+        );
+        try {
+          res.end();
+        } catch {}
+        return;
       }
-
+      if (fetchError.name === "AbortError") {
+        return res.status(504).json({ error: "Assistant service timeout" });
+      }
       console.error("Error calling assistant endpoint:", fetchError);
-      return res.status(500).json({
-        error: "Failed to communicate with assistant service",
-      });
+      return res
+        .status(500)
+        .json({ error: "Failed to communicate with assistant service" });
     }
   } catch (error) {
     console.error("Error in /chat endpoint:", error);
-    res.status(500).json({
-      error: "Internal server error processing chat request",
-    });
+    if (res.headersSent) {
+      try {
+        res.end();
+      } catch {}
+      return;
+    }
+    res
+      .status(500)
+      .json({ error: "Internal server error processing chat request" });
   }
 });
 

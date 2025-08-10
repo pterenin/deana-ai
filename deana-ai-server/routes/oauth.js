@@ -8,6 +8,31 @@ import { invalidateUserCache } from "./chat.js";
 
 const router = express.Router();
 
+// Helper to refresh Google access token using refresh_token
+async function refreshGoogleAccessToken(refreshToken) {
+  const params = new URLSearchParams({
+    client_id: config.GOOGLE_CLIENT_ID,
+    client_secret: config.GOOGLE_CLIENT_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Refresh token failed: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  // data: { access_token, expires_in, scope?, token_type }
+  return data;
+}
+
 // Google OAuth endpoint
 router.post("/google-oauth", async (req, res) => {
   try {
@@ -313,7 +338,7 @@ router.post("/google-disconnect", async (req, res) => {
   }
 });
 
-// Get user's connected accounts
+// Get user's connected accounts (auto-refresh expired tokens when possible)
 router.get("/user-accounts/:googleUserId", async (req, res) => {
   try {
     const { googleUserId } = req.params;
@@ -322,7 +347,7 @@ router.get("/user-accounts/:googleUserId", async (req, res) => {
       return res.status(400).json({ error: "Google User ID is required" });
     }
 
-    // Get both primary and secondary accounts for the user
+    // Get both primary and secondary accounts for the user, include refresh_token for server-side refresh
     const { rows } = await pool.query(
       `SELECT
         ugt.account_type,
@@ -332,7 +357,8 @@ router.get("/user-accounts/:googleUserId", async (req, res) => {
         ugt.name,
         ugt.avatar_url,
         ugt.scope,
-        ugt.expires_at
+        ugt.expires_at,
+        ugt.refresh_token
       FROM user_google_tokens ugt
       JOIN users u ON ugt.user_id = u.id
       WHERE u.google_user_id = $1
@@ -345,7 +371,47 @@ router.get("/user-accounts/:googleUserId", async (req, res) => {
       secondary: null,
     };
 
-    rows.forEach((row) => {
+    const now = Date.now();
+
+    // Iterate through accounts and refresh if expired and refresh_token exists
+    for (const row of rows) {
+      let expiresAtMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+      let connected = expiresAtMs > now;
+
+      if (!connected && row.refresh_token) {
+        try {
+          const refreshData = await refreshGoogleAccessToken(row.refresh_token);
+          const newAccessToken = refreshData.access_token;
+          const newExpiry = new Date(
+            Date.now() + (refreshData.expires_in || 3600) * 1000
+          );
+
+          // Update DB with new tokens
+          await pool.query(
+            `UPDATE user_google_tokens
+             SET access_token = $1,
+                 expires_at = $2,
+                 updated_at = NOW()
+             WHERE user_id = (SELECT id FROM users WHERE google_user_id = $3)
+               AND account_type = $4`,
+            [newAccessToken, newExpiry, googleUserId, row.account_type]
+          );
+
+          // Invalidate user cache so subsequent requests get fresh tokens
+          invalidateUserCache(googleUserId);
+
+          // Update computed values
+          expiresAtMs = newExpiry.getTime();
+          connected = true;
+        } catch (err) {
+          console.warn(
+            `Failed to refresh ${row.account_type} token for ${googleUserId}:`,
+            err.message
+          );
+          connected = false;
+        }
+      }
+
       accounts[row.account_type] = {
         google_user_id: row.google_user_id,
         email: row.email,
@@ -353,10 +419,10 @@ router.get("/user-accounts/:googleUserId", async (req, res) => {
         avatar_url: row.avatar_url,
         title: row.title,
         scope: row.scope,
-        expires_at: row.expires_at,
-        connected: true,
+        expires_at: new Date(expiresAtMs || 0).toISOString(),
+        connected,
       };
-    });
+    }
 
     res.json({
       success: true,

@@ -1,0 +1,52 @@
+name: Deploy BFF to AWS App Runner
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deana-ai-server/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-2
+      ECR_REPOSITORY: deana-bff
+      IMAGE_TAG: latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        working-directory: deana-ai-server
+        run: |
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          ECR_URI=$(aws ecr describe-repositories --repository-names $ECR_REPOSITORY --query 'repositories[0].repositoryUri' --output text || true)
+          if [ -z "$ECR_URI" ]; then
+            aws ecr create-repository --repository-name $ECR_REPOSITORY >/dev/null
+            ECR_URI=$(aws ecr describe-repositories --repository-names $ECR_REPOSITORY --query 'repositories[0].repositoryUri' --output text)
+          fi
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_URI:$IMAGE_TAG
+          docker push $ECR_URI:$IMAGE_TAG
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+
+      - name: Update App Runner service
+        run: |
+          # Requires APP_RUNNER_SERVICE_ARN secret
+          aws apprunner update-service \
+            --service-arn "${{ secrets.APP_RUNNER_SERVICE_ARN }}" \
+            --source-configuration "ImageRepository={ImageIdentifier=${{ env.ECR_URI }}:${{ env.IMAGE_TAG }},ImageConfiguration={Port=3001}},AutoDeploymentsEnabled=true"

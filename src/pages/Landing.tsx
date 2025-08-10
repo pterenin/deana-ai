@@ -1,32 +1,46 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import ConnectGoogleButton from "@/components/ConnectGoogleButton";
 import { useAuthStore } from "../store/authStore";
+import { BACKEND_URL } from "@/constants/apiConstants";
+
 const Landing = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const [connectedAccounts, setConnectedAccounts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      if (!user?.id) {
+        setConnectedAccounts([]);
+        return;
+      }
+      try {
+        const res = await fetch(`${BACKEND_URL}/user-accounts/${user.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const emails: string[] = [];
+        const primary = data?.accounts?.primary;
+        const secondary = data?.accounts?.secondary;
+        if (primary?.connected && primary?.email)
+          emails.push(`${primary.email} (Primary)`);
+        if (secondary?.connected && secondary?.email)
+          emails.push(`${secondary.email} (Secondary)`);
+        setConnectedAccounts(emails);
+      } catch {
+        // ignore
+      }
+    };
+    fetchAccounts();
+  }, [user?.id]);
 
   const handleGetStarted = () => {
     navigate("/chat");
   };
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Header with Deana.AI Logo and Google Connect Button */}
-      <header className="p-6 flex justify-between items-center max-w-6xl mx-auto">
-        <div className="flex-1"></div>
-        <img
-          src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png"
-          alt="Deana.AI"
-          className="h-10 md:h-20 object-contain"
-        />
-        <div className="flex-1 flex justify-end">
-          <ConnectGoogleButton />
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-6">
+      <main className="flex-1 flex items-center justify-center px-6 pt-14">
         <div className="text-center max-w-4xl mx-auto">
           <div className="mb-8 relative">
             {/* Portrait Image with Fade Effect */}
@@ -56,9 +70,11 @@ const Landing = () => {
 
           {user ? (
             <div className="space-y-4">
-              <p className="text-sm text-green-600">
-                ✅ Connected as {user.email}
-              </p>
+              {connectedAccounts.length > 0 && (
+                <p className="text-sm text-green-600">
+                  ✅ Connected as {connectedAccounts.join(", ")}
+                </p>
+              )}
               <Button
                 onClick={handleGetStarted}
                 size="lg"

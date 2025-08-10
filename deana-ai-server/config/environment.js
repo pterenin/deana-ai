@@ -32,7 +32,9 @@ export const config = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   REDIRECT_URI: process.env.REDIRECT_URI,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   NODE_ENV: process.env.NODE_ENV || "development",
+  AGENT_BASE_URL: process.env.AGENT_BASE_URL || "http://localhost:3060",
 };
 
 // Debug: Log environment variables on startup
@@ -43,3 +45,4 @@ console.log(
   config.GOOGLE_CLIENT_SECRET ? "SET" : "NOT SET"
 );
 console.log("REDIRECT_URI:", config.REDIRECT_URI ? "SET" : "NOT SET");
+console.log("OPENAI_API_KEY:", config.OPENAI_API_KEY ? "SET" : "NOT SET");

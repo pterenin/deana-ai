@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 
 // Import configuration and services
 import { config } from "./config/environment.js";
@@ -12,17 +13,34 @@ import {
 import oauthRoutes from "./routes/oauth.js";
 import chatRoutes from "./routes/chat.js";
 import configRoutes from "./routes/config.js";
+import ttsRoutes from "./routes/tts.js";
 
 const app = express();
 
-// Middleware
+// Security headers
+app.disable("x-powered-by");
 app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: true,
+  helmet({
+    contentSecurityPolicy: false, // Keep simple; can tailor CSP once static origins are finalized
+    referrerPolicy: { policy: "no-referrer" },
+    crossOriginResourcePolicy: { policy: "same-site" },
   })
 );
-app.use(express.json());
+
+// CORS lock-down
+const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || origin === allowedOrigin) return cb(null, true);
+      cb(new Error("Not allowed by CORS"));
+    },
+    credentials: false,
+  })
+);
+
+// JSON body size limit
+app.use(express.json({ limit: "256kb" }));
 
 // Initialize database on startup
 initializeDatabase();
@@ -31,6 +49,7 @@ initializeDatabase();
 app.use("/", oauthRoutes);
 app.use("/", chatRoutes);
 app.use("/", configRoutes);
+app.use("/", ttsRoutes);
 
 // Run cleanup every hour
 setInterval(cleanupOldWorkflowStatus, 60 * 60 * 1000);

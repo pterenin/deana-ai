@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useTTS } from "./useTTS";
 import { useSpeechToText } from "./useSpeechToText";
@@ -13,14 +13,62 @@ export const useChat = () => {
     updateLastMessage,
     updateMessageStatus,
   } = useChatStore();
-  const { user, jwtToken } = useAuthStore();
-  const { playTTS, stop: stopTTS } = useTTS();
+  const { user } = useAuthStore();
+  const {
+    playTTS,
+    stop: stopTTS,
+    speakSentencesStreaming,
+  } = useTTS({ streaming: true });
   const { stopListening } = useSpeechToText();
   const [error, setError] = useState<string | null>(null);
+  const didStreamTTSRef = useRef(false);
+
+  // Track spoken progress per active bot message
+  const lastSpokenTextRef = useRef<string>("");
+  const spokenSentencesRef = useRef<Set<string>>(new Set());
+
+  const splitIntoSentences = (text: string): string[] =>
+    text
+      .split(/(?<=[.!?])\s+|\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const hasAlphaNum = (s: string) => /[\p{L}\p{N}]/u.test(s);
+
+  const enqueueNewSentences = (fullContent: string) => {
+    // Only speak new delta, avoid duplicates
+    const prev = lastSpokenTextRef.current;
+    let delta = "";
+    if (fullContent.startsWith(prev)) {
+      delta = fullContent.slice(prev.length);
+    } else {
+      // Content changed unexpectedly; resync baseline without replaying old lines
+      // Try to find the longest common prefix window end
+      delta = fullContent;
+    }
+
+    // Update baseline for next pass
+    lastSpokenTextRef.current = fullContent;
+
+    const newSentences = splitIntoSentences(delta).filter((s) => {
+      if (!hasAlphaNum(s)) return false; // skip emoji-only or punctuation-only
+      if (spokenSentencesRef.current.has(s)) return false; // already spoken
+      spokenSentencesRef.current.add(s);
+      return true;
+    });
+
+    if (newSentences.length > 0) {
+      didStreamTTSRef.current = true;
+      void speakSentencesStreaming(newSentences.join(" "));
+    }
+  };
 
   const sendMessage = async (text: string) => {
     try {
       setError(null);
+      didStreamTTSRef.current = false;
+      lastSpokenTextRef.current = "";
+      spokenSentencesRef.current = new Set();
 
       // Check if user is authenticated
       if (!user || !user.google_user_id) {
@@ -37,23 +85,15 @@ export const useChat = () => {
       stopTTS();
 
       // Add user message immediately
-      console.log("Adding user message:", text);
-      console.log(
-        "Current messages before adding user message:",
-        useChatStore.getState().messages
-      );
       addMessage({
         from: "user",
         text,
       });
 
-      console.log("Sending message to backend for user:", user.google_user_id);
-
       // Show loading state
       setLoading(true);
 
       // Add initial bot message for streaming
-      console.log("Adding initial bot message with empty text");
       const botMessageId = addMessage({
         from: "bot",
         text: "",
@@ -79,14 +119,22 @@ export const useChat = () => {
         console.log("Could not fetch secondary account info:", error);
       }
 
+      // Load phone from localStorage
+      const phone = localStorage.getItem("user_phone_e164") || null;
+
+      // Timezone and client time info
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const clientNowISO = new Date().toISOString();
+
       // Call the backend /chat endpoint with streaming
       const chatPayload = {
         text,
         googleUserId: user.google_user_id,
         ...(secondaryGoogleUserId && { secondaryGoogleUserId }),
-      };
-
-      console.log("Sending chat payload:", chatPayload);
+        ...(phone && { phone }),
+        timezone,
+        clientNowISO,
+      } as any;
 
       const response = await fetch(BACKEND_CHAT_ENDPOINT, {
         method: "POST",
@@ -107,6 +155,9 @@ export const useChat = () => {
         let buffer = "";
         let finalMessage = "";
 
+        // Stop speech recognition when TTS is playing to prevent feedback
+        if (!isMuted) stopListening();
+
         while (true) {
           const { done, value } = await reader.read();
 
@@ -125,31 +176,25 @@ export const useChat = () => {
 
                 switch (data.type) {
                   case "status":
-                    console.log("📊 Status update:", data.content);
                     updateMessageStatus(botMessageId, data.content);
                     break;
 
                   case "progress":
-                    console.log("📊 Progress update:", data.content);
                     updateMessageStatus(botMessageId, data.content);
                     break;
 
                   case "response":
-                    console.log("💬 Agent response:", data.content);
                     finalMessage = data.content;
-                    console.log(
-                      "Updating bot message with response:",
-                      data.content
-                    );
                     updateLastMessage(botMessageId, data.content);
+                    if (!isMuted && typeof data.content === "string") {
+                      enqueueNewSentences(data.content);
+                    }
                     break;
 
                   case "complete":
-                    console.log("✅ Agent finished processing");
                     break;
 
                   case "error":
-                    console.log("❌ Error:", data.content);
                     updateLastMessage(botMessageId, `Error: ${data.content}`);
                     break;
 
@@ -157,6 +202,9 @@ export const useChat = () => {
                     // Handle final response for compatibility
                     finalMessage = data.output || data.text;
                     updateLastMessage(botMessageId, finalMessage);
+                    if (!isMuted && typeof finalMessage === "string") {
+                      enqueueNewSentences(finalMessage);
+                    }
                     break;
                 }
               } catch (e) {
@@ -169,12 +217,9 @@ export const useChat = () => {
         // Release the input field after streaming is complete
         setLoading(false);
 
-        // Use OpenAI TTS for audio playback if not muted
-        if (!isMuted && finalMessage) {
-          console.log("Playing TTS for response");
-          // Stop speech recognition when TTS is playing to prevent feedback
-          stopListening();
-          playTTS(finalMessage);
+        // Fallback: if nothing was streamed to TTS, speak once at the end
+        if (!isMuted && finalMessage && !didStreamTTSRef.current) {
+          await playTTS(finalMessage);
         }
       } else {
         const errorData = await response.json();
@@ -200,7 +245,6 @@ export const useChat = () => {
       // Release the input field after error handling
       setLoading(false);
 
-      // Use TTS for error message if not muted
       if (!isMuted) {
         playTTS(errorMessage);
       }

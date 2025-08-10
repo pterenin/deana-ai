@@ -12,6 +12,7 @@ import OAuthCallback from "./pages/OAuthCallback";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ChatProtectedRoute } from "./components/ChatProtectedRoute";
 import { AuthCheck } from "./components/AuthCheck";
+import Navbar from "./components/Navbar";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <Navbar />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/oauth2callback" element={<OAuthCallback />} />

@@ -1,37 +1,27 @@
-# Deana AI Server
+# Deana.AI – Backend (Express)
 
-A modular Express.js server that provides OAuth and chat functionality for the Deana AI application.
+Express server providing Google OAuth, chat streaming (SSE), and OpenAI TTS proxy for Deana.AI.
 
-## 🏗️ Architecture
+## Features
 
-The server has been refactored into a modular structure for better maintainability:
+- Google OAuth (primary + secondary accounts) with token refresh and account titles
+- Chat SSE proxy to assistant service (`${AGENT_BASE_URL}/api/chat/stream`, default local `http://localhost:3060`)
+- TTS proxy to OpenAI (`/tts`, `/tts-stream`) with streaming
+- Caching of user/token metadata with safe invalidation
+- Security hardening:
+  - helmet headers, CORS lock‑down, JSON body size limit
+  - Zod validation for `/chat`, `/tts`, `/tts-stream`
+  - Rate limiting for `/chat` and `/tts*`
+  - SSE error handling and client‑disconnect aborts
 
-```
-deana-ai-server/
-├── config/
-│   ├── database.js      # Database configuration and initialization
-│   └── environment.js   # Environment variables and configuration
-├── middleware/
-│   └── auth.js          # JWT authentication middleware
-├── routes/
-│   ├── oauth.js         # Google OAuth endpoints
-│   ├── chat.js          # Chat and streaming endpoints
-│   └── config.js        # Configuration and utility endpoints
-
-├── server.js            # Original monolithic server
-├── server-new.js        # New modular server
-└── package.json
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
+## Requirements
 
 - Node.js 18+
-- PostgreSQL database
-- Google OAuth credentials
+- PostgreSQL
+- Google OAuth Client ID/Secret
+- OpenAI API key
 
-### Installation
+## Setup
 
 1. Install dependencies:
 
@@ -39,97 +29,110 @@ deana-ai-server/
    npm install
    ```
 
-2. Copy the environment file:
+2. Create env file:
 
    ```bash
    cp oauth.env.example oauth.env
    ```
 
-3. Configure your environment variables in `oauth.env`
+3. Populate `oauth.env`:
 
-4. Start the server:
+   ```env
+   # Database
+   DATABASE_URL=postgresql://username:password@localhost:5432/deana_ai
 
-   ```bash
-   # Use the original monolithic server
-   npm start
+   # JWT
+   JWT_SECRET=change-me
 
-   # Use the new modular server
-   npm run start:new
+   # Google OAuth
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   REDIRECT_URI=http://localhost:3000/oauth2callback
 
-   # Development with auto-reload
-   npm run dev:new
+   # OpenAI
+   OPENAI_API_KEY=sk-your-openai-key
+
+   # Agentic Workflow Service
+   AGENT_BASE_URL=http://localhost:3060
+   # For AWS App Runner:
+   # AGENT_BASE_URL=https://tszd6sxek5.us-east-2.awsapprunner.com
+
+   # Server
+   PORT=3001
+   NODE_ENV=development
+
+   # CORS (frontend origin)
+   CORS_ORIGIN=http://localhost:3000
+
+   # (optional) Supabase migration
+   SUPABASE_URL=...
+   SUPABASE_ANON_KEY=...
    ```
 
-## 📁 Module Structure
+4. Start the server:
+   ```bash
+   npm start
+   # or development with auto-reload
+   npm run dev
+   ```
 
-### Configuration (`config/`)
-
-- **`database.js`**: PostgreSQL connection, table creation, and cleanup functions
-- **`environment.js`**: Environment variable loading and configuration
-
-### Middleware (`middleware/`)
-
-- **`auth.js`**: JWT token validation and generation
-
-### Routes (`routes/`)
-
-- **`oauth.js`**: Google OAuth flow and token management
-- **`chat.js`**: Chat streaming with agent integration
-- **`config.js`**: Configuration management and utility endpoints
-
-## 🔧 API Endpoints
+## Endpoints
 
 ### OAuth
 
-- `POST /google-oauth` - Google OAuth token exchange
+- `POST /google-oauth` – exchange code, store tokens, return JWT
+- `POST /google-disconnect` – revoke and remove tokens
+- `GET /user-accounts/:googleUserId` – list accounts (auto-refresh if expired)
 
-### Chat
+### Chat (SSE)
 
-- `POST /chat` - Streaming chat with agent
+- `POST /chat` – body (validated by Zod):
+  ```json
+  {
+    "text": "Hi",
+    "googleUserId": "...",
+    "secondaryGoogleUserId": "...optional...",
+    "phone": "+16049108101 (optional)",
+    "timezone": "America/Los_Angeles",
+    "clientNowISO": "2025-08-09T12:34:56.000Z"
+  }
+  ```
+  Streams server-sent events: `status`, `progress`, `response`, `complete`, `error`, `final`.
 
-### Configuration
+### TTS
 
-- `GET /health` - Health check
-- `POST /test-token` - Generate test JWT token
+- `POST /tts` – returns base64 `{ audioContent }` (mp3)
+- `POST /tts-stream` – streams audio (mp3/opus). Body (Zod‑validated):
+  ```json
+  { "text": "Hello", "voice": "shimmer", "response_format": "mp3" }
+  ```
 
-- `GET /chat-logs` - Get chat logs (authenticated)
-- `GET /workflow-status/:sessionId` - Get workflow status
-- `POST /workflow-status` - Update workflow status
+### Config/Utils
 
-## 🔄 Migration
+- `GET /health` – health check
+- `GET /chat-logs` – requires JWT
+- `GET /workflow-status/:sessionId`
+- `POST /workflow-status`
 
-The server supports both the original monolithic structure (`server.js`) and the new modular structure (`server-new.js`). You can switch between them by using different npm scripts:
+## Security
 
-```bash
-# Original server
-npm start
+- Headers: `helmet` enabled, `x-powered-by` disabled
+- CORS: restricted to `CORS_ORIGIN` (default `http://localhost:3000`)
+- Body limit: `express.json({ limit: '256kb' })`
+- Validation: Zod schemas for `/chat`, `/tts`, `/tts-stream`
+- Rate limiting:
+  - `/chat`: 20 req/min/IP
+  - `/tts*`: 30 req/min/IP
+- SSE robustness: client disconnect aborts upstream; error events after SSE start
 
-# New modular server
-npm run start:new
-```
+## Notes
 
-## 🛠️ Development
+- Assistant proxy target is `${AGENT_BASE_URL}/api/chat/stream`. Use local default or AWS URL.
+- Tokens are cached; cache invalidated on critical changes (e.g., OAuth updates).
+- Avoid logging secrets/PII; phone and tokens are not logged.
 
-### Adding New Routes
+## Run locally with frontend
 
-1. Create a new route file in `routes/`
-2. Export the router
-3. Import and mount in `server-new.js`
-
-### Adding New Services
-
-1. Create a new service file in `services/`
-2. Export the functions
-3. Import and use in routes or other services
-
-### Environment Variables
-
-All environment variables are loaded in `config/environment.js` and exported as a `config` object for use throughout the application.
-
-## 📝 Notes
-
-- The modular structure makes the code more maintainable and testable
-- Each module has a single responsibility
-- Services can be easily mocked for testing
-- Routes are organized by functionality
-- Configuration is centralized and type-safe
+- Frontend at `http://localhost:3000` (Vite dev server)
+- Backend at `http://localhost:3001`
+- Ensure `CORS_ORIGIN` matches the frontend URL.

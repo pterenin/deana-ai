@@ -41,7 +41,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isMuted: false,
   voiceSettings: {
-    voice: "nova",
+    voice: "shimmer",
   },
   addMessage: (message) => {
     console.log("ChatStore: Adding message:", message);

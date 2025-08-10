@@ -63,7 +63,9 @@ export const ChatProtectedRoute: React.FC<ChatProtectedRouteProps> = ({
   }
 
   // Check if primary account is connected
-  if (!accounts.primary) {
+  const primaryConnected =
+    !!accounts.primary && accounts.primary.connected !== false;
+  if (!primaryConnected) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-6">
@@ -78,8 +80,8 @@ export const ChatProtectedRoute: React.FC<ChatProtectedRouteProps> = ({
             </h1>
             <p className="text-gray-600 mb-8">
               A primary Google account connection is required to use the chat
-              functionality. Please connect your primary account in the settings
-              page.
+              functionality. Please connect or reconnect your primary account in
+              the settings page.
             </p>
           </div>
 
