@@ -62,11 +62,14 @@ jobs:
             --cache-control "no-store, no-cache, must-revalidate" \
             --content-type "text/html"
 
-      - name: Invalidate CloudFront
-        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
+      - name: Invalidate CloudFront (if ID provided)
         env:
           CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
-          aws cloudfront create-invalidation \
-            --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
-            --paths "/*"
+          if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+            aws cloudfront create-invalidation \
+              --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+              --paths "/*"
+          else
+            echo "No CLOUDFRONT_DISTRIBUTION_ID set; skipping invalidation"
+          fi
