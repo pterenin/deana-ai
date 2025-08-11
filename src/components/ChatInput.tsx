@@ -112,7 +112,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               onKeyDown={handleKeyDown}
               placeholder={isListening ? "Listening..." : "Ask Anything..."}
               disabled={disabled}
-              className={`min-h-[56px] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 px-6 py-4 text-gray-700 placeholder-gray-500 ${
+              className={`min-h-[56px] max-h-32 resize-none rounded-3xl border-gray-300 bg-gray-50 focus:border-purple-500 focus:ring-purple-500 px-6 py-4 text-gray-700 placeholder-gray-500 text-base ${
                 isListening ? "border-red-300 bg-red-50" : ""
               }`}
               aria-label="Chat message input"

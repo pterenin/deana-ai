@@ -10,8 +10,10 @@ const Chat = () => {
   const { isLoading } = useChatStore();
 
   return (
-    <div className="h-screen flex flex-col bg-white pt-14">
-      <ChatContainer onAction={handleActionClick} />
+    <div className="fixed inset-x-0 top-14 bottom-0 flex flex-col bg-white">
+      <div className="flex-1 min-h-0 flex flex-col">
+        <ChatContainer onAction={handleActionClick} />
+      </div>
 
       <ChatInput onSendMessage={sendMessage} disabled={isLoading} />
 
