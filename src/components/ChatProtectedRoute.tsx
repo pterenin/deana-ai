@@ -58,10 +58,6 @@ export const ChatProtectedRoute: React.FC<ChatProtectedRouteProps> = ({
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
   // Check if primary account is connected
   const primaryConnected =
     !!accounts.primary && accounts.primary.connected !== false;
