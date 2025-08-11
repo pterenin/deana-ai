@@ -5,6 +5,7 @@ import { useAuthStore } from "../store/authStore";
 import PhoneSection from "@/components/settings/PhoneSection";
 import AccountCard, { AccountInfo } from "@/components/settings/AccountCard";
 import { useUserAccounts } from "@/hooks/useUserAccounts";
+import { BACKEND_URL } from "@/constants/apiConstants";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -95,7 +96,7 @@ export default function Settings() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/google-disconnect`, {
+      const response = await fetch(`${BACKEND_URL}/google-disconnect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, accountType }),
@@ -145,18 +146,15 @@ export default function Settings() {
 
     setUpdatingTitle(accountType);
     try {
-      const response = await fetch(
-        `http://localhost:3001/update-account-title`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            googleUserId: user.id,
-            accountType,
-            title: newTitle,
-          }),
-        }
-      );
+      const response = await fetch(`${BACKEND_URL}/update-account-title`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleUserId: user.id,
+          accountType,
+          title: newTitle,
+        }),
+      });
 
       if (response.ok) {
         const data = await response.json();

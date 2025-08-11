@@ -4,12 +4,13 @@ import { fileURLToPath } from "url";
 import { existsSync, readFileSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, "..", "oauth.env");
+// Load env from deana-ai-server/.env
+const envPath = path.join(__dirname, "..", ".env");
 
 console.log("Loading environment from:", envPath);
 console.log("File exists:", existsSync(envPath));
 
-// Load environment variables first
+// Load environment variables first (falls back to process.env when file missing)
 const result = dotenv.config({ path: envPath, debug: true });
 console.log("Dotenv result:", result);
 
@@ -35,9 +36,10 @@ export const config = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   NODE_ENV: process.env.NODE_ENV || "development",
   AGENT_BASE_URL: process.env.AGENT_BASE_URL || "http://localhost:3060",
+  CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
 };
 
-// Debug: Log environment variables on startup
+// Debug: Log presence of key vars
 console.log("Environment variables check on startup:");
 console.log("GOOGLE_CLIENT_ID:", config.GOOGLE_CLIENT_ID ? "SET" : "NOT SET");
 console.log(
