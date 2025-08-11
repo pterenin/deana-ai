@@ -28,7 +28,7 @@ export const ChatHeader: React.FC = () => {
 
         <div className="flex-1 flex justify-center">
           <img
-            src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png"
+            src="/assets/logo.png"
             alt="Deana.AI"
             className="h-8 object-contain"
           />

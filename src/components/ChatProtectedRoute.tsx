@@ -67,7 +67,7 @@ export const ChatProtectedRoute: React.FC<ChatProtectedRouteProps> = ({
         <div className="text-center max-w-md mx-auto px-6">
           <div className="mb-8">
             <img
-              src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png"
+              src="/assets/logo.png"
               alt="Deana.AI"
               className="h-16 mx-auto mb-6"
             />

@@ -46,7 +46,7 @@ const Landing = () => {
             {/* Portrait Image with Fade Effect */}
             <div className="relative inline-block">
               <img
-                src="/lovable-uploads/ff72edbe-57cf-4675-bddc-7865b13e2364.png"
+                src="/assets/portrait.png"
                 alt="Deana AI"
                 className="w-80 h-100 mx-auto object-cover rounded-none"
               />

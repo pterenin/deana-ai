@@ -21,7 +21,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
               <img
-                src="/lovable-uploads/efb1c112-c79e-44ff-89be-4cf33f21c7f4.png"
+                src="/assets/logo.png"
                 alt="Deana.AI"
                 className="h-8 w-auto"
               />
