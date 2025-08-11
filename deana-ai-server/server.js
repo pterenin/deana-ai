@@ -21,21 +21,28 @@ const app = express();
 app.disable("x-powered-by");
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Keep simple; can tailor CSP once static origins are finalized
+    contentSecurityPolicy: false,
     referrerPolicy: { policy: "no-referrer" },
     crossOriginResourcePolicy: { policy: "same-site" },
   })
 );
 
-// CORS lock-down
-const allowedOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
+// CORS lock-down (supports comma-separated allowlist)
+const allowlist = (process.env.CORS_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || origin === allowedOrigin) return cb(null, true);
-      cb(new Error("Not allowed by CORS"));
+      if (!origin) return cb(null, true); // allow non-browser or same-origin
+      if (allowlist.includes(origin)) return cb(null, true);
+      return cb(null, false);
     },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: false,
+    optionsSuccessStatus: 204,
   })
 );
 
