@@ -29,11 +29,23 @@ jobs:
           set -euo pipefail
           TOKEN_JSON=$(curl -sSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
           TOKEN=$(echo "$TOKEN_JSON" | jq -r '.value')
-          PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f 2 | tr '_-' '/+' | base64 -d 2>/dev/null || echo "$TOKEN" | cut -d '.' -f 2 | base64 -d)
-          echo "aud=$(echo "$PAYLOAD" | jq -r '.aud')"
-          echo "sub=$(echo "$PAYLOAD" | jq -r '.sub')"
-          echo "repository=$(echo "$PAYLOAD" | jq -r '.repository')"
-          echo "ref=$(echo "$PAYLOAD" | jq -r '.ref')"
+          ID_TOKEN="$TOKEN" python3 - <<'PY'
+          import os, json, base64
+          token = os.environ.get('ID_TOKEN', '')
+          if not token or token.count('.') != 2:
+              print('aud=')
+              print('sub=')
+              print('repository=')
+              print('ref=')
+          else:
+              payload_b64 = token.split('.')[1]
+              payload_b64 += '=' * (-len(payload_b64) % 4)
+              payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+              print(f"aud={payload.get('aud')}")
+              print(f"sub={payload.get('sub')}")
+              print(f"repository={payload.get('repository')}")
+              print(f"ref={payload.get('ref')}")
+          PY
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
