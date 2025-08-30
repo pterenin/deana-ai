@@ -9,6 +9,18 @@ export interface Message {
   timestamp?: Date;
 }
 
+const generateMessageId = (): string => {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof (crypto as any).randomUUID === "function"
+  ) {
+    return (crypto as any).randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+};
+
 interface VoiceSettings {
   voice?: string;
   apiKey?: string;
@@ -30,14 +42,7 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  messages: [
-    {
-      id: "1",
-      from: "bot",
-      text: "Hello! I'm Deana, your AI assistant. How can I help you today?",
-      timestamp: new Date(),
-    },
-  ],
+  messages: [],
   isLoading: false,
   isMuted: false,
   voiceSettings: {
@@ -47,7 +52,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     console.log("ChatStore: Adding message:", message);
     const newMessage: Message = {
       ...message,
-      id: Date.now().toString(),
+      id: generateMessageId(),
       timestamp: new Date(),
     };
     console.log("ChatStore: Created new message:", newMessage);

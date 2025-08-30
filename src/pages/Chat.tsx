@@ -4,10 +4,20 @@ import { ChatInput } from "../components/ChatInput";
 import { useChat } from "../hooks/useChat";
 import { useChatStore } from "../store/chatStore";
 import { Toaster } from "@/components/ui/toaster";
+import { INITIAL_MESSAGE } from "@/constants";
+
+let hasSentInitialMessage = false;
 
 const Chat = () => {
   const { sendMessage, handleActionClick, error } = useChat();
   const { isLoading } = useChatStore();
+
+  React.useEffect(() => {
+    if (!hasSentInitialMessage) {
+      hasSentInitialMessage = true;
+      void sendMessage(INITIAL_MESSAGE);
+    }
+  }, [sendMessage]);
 
   return (
     <div className="fixed inset-x-0 top-14 bottom-0 flex flex-col bg-white">

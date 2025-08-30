@@ -28,9 +28,21 @@ export const sendMessageToDeana = async (text: string): Promise<Message[]> => {
   const randomResponse =
     responses[Math.floor(Math.random() * responses.length)];
 
+  const generateId = (): string => {
+    if (
+      typeof crypto !== "undefined" &&
+      typeof (crypto as any).randomUUID === "function"
+    ) {
+      return (crypto as any).randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+  };
+
   return [
     {
-      id: Date.now().toString(),
+      id: generateId(),
       from: "bot",
       text: randomResponse,
       actions:

@@ -35,18 +35,23 @@ export const useTTS = (options: UseTTSOptions = {}) => {
 
   const stop = useCallback(() => {
     shouldStopRef.current = true;
-    // Revoke any preloaded URLs
-    for (const it of itemsRef.current) {
-      if (it.blobUrl) URL.revokeObjectURL(it.blobUrl);
-    }
-    itemsRef.current = [];
-    playIndexRef.current = 0;
+    // First, pause current audio. Its URL will be revoked in playAudioUrl cleanup.
     if (currentAudioRef.current) {
       try {
         currentAudioRef.current.pause();
       } catch {}
       currentAudioRef.current = null;
     }
+    // Revoke preloaded URLs except the one currently being played
+    const currentIdx = playIndexRef.current;
+    for (let i = 0; i < itemsRef.current.length; i++) {
+      const it = itemsRef.current[i];
+      if (i !== currentIdx && it.blobUrl) {
+        URL.revokeObjectURL(it.blobUrl);
+      }
+    }
+    itemsRef.current = [];
+    playIndexRef.current = 0;
     setIsPlaying(false);
     isQueuePlayingRef.current = false;
   }, []);
@@ -157,29 +162,73 @@ export const useTTS = (options: UseTTSOptions = {}) => {
 
     await new Promise<void>((resolve) => {
       const cleanup = () => {
-        URL.revokeObjectURL(audioUrl);
+        try {
+          audio.pause();
+          audio.removeAttribute("src");
+          audio.load();
+        } catch {}
+        queueMicrotask(() => {
+          try {
+            URL.revokeObjectURL(audioUrl);
+          } catch {}
+        });
         if (currentAudioRef.current === audio) currentAudioRef.current = null;
       };
-      audio.onended = () => {
+
+      const onEnded = () => {
         cleanup();
         resolve();
       };
-      audio.onerror = () => {
+      const onError = () => {
         setError("Audio playback failed");
         cleanup();
         resolve();
       };
-      audio.onpause = () => {
+      const onPause = () => {
         if (shouldStopRef.current) {
           cleanup();
           resolve();
         }
       };
-      audio.play().catch(() => {
-        setError("Audio playback failed to start");
-        cleanup();
-        resolve();
-      });
+      audio.onended = onEnded;
+      audio.onerror = onError;
+      audio.onpause = onPause;
+
+      const tryPlay = () => {
+        audio.play().catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          const name = (err as any)?.name as string | undefined;
+          const isAutoplayBlocked =
+            name === "NotAllowedError" || /gesture|blocked/i.test(message);
+          if (isAutoplayBlocked) {
+            // Wait for a user gesture, then retry once
+            const retry = () => {
+              removeGestureListeners();
+              audio.play().catch(() => {
+                setError("Audio playback failed to start");
+                cleanup();
+                resolve();
+              });
+            };
+            const removeGestureListeners = () => {
+              document.removeEventListener("pointerdown", retry);
+              document.removeEventListener("keydown", retry);
+              document.removeEventListener("click", retry);
+              document.removeEventListener("touchstart", retry);
+            };
+            document.addEventListener("pointerdown", retry, { once: true });
+            document.addEventListener("keydown", retry, { once: true });
+            document.addEventListener("click", retry, { once: true });
+            document.addEventListener("touchstart", retry, { once: true });
+          } else {
+            setError("Audio playback failed to start");
+            cleanup();
+            resolve();
+          }
+        });
+      };
+
+      tryPlay();
     });
   };
 

@@ -4,6 +4,7 @@ import { useTTS } from "./useTTS";
 import { useSpeechToText } from "./useSpeechToText";
 import { useAuthStore } from "../store/authStore";
 import { BACKEND_CHAT_ENDPOINT, BACKEND_URL } from "@/constants/apiConstants";
+import { INITIAL_MESSAGE } from "@/constants";
 import { buildSessionId } from "@/lib/session";
 
 export const useChat = () => {
@@ -86,10 +87,12 @@ export const useChat = () => {
       stopTTS();
 
       // Add user message immediately
-      addMessage({
-        from: "user",
-        text,
-      });
+      if (text !== INITIAL_MESSAGE) {
+        addMessage({
+          from: "user",
+          text,
+        });
+      }
 
       // Show loading state
       setLoading(true);

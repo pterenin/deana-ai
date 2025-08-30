@@ -49,13 +49,31 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
 
       audio.onended = () => {
         setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
+        try {
+          audio.pause();
+          audio.removeAttribute("src");
+          audio.load();
+        } catch {}
+        queueMicrotask(() => {
+          try {
+            URL.revokeObjectURL(audioUrl);
+          } catch {}
+        });
       };
 
       audio.onerror = () => {
         setIsPlaying(false);
         setError("Audio playback failed");
-        URL.revokeObjectURL(audioUrl);
+        try {
+          audio.pause();
+          audio.removeAttribute("src");
+          audio.load();
+        } catch {}
+        queueMicrotask(() => {
+          try {
+            URL.revokeObjectURL(audioUrl);
+          } catch {}
+        });
       };
 
       await audio.play();
