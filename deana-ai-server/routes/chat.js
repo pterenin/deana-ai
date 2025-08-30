@@ -22,6 +22,7 @@ const chatLimiter = rateLimit({
 const ChatSchema = z.object({
   text: z.string().min(1).max(8000),
   googleUserId: z.string().min(5).max(128),
+  sessionId: z.string().min(8).max(256).optional(),
   secondaryGoogleUserId: z.string().min(5).max(128).optional(),
   phone: z
     .string()
@@ -204,6 +205,7 @@ router.post("/chat", chatLimiter, async (req, res) => {
     const {
       text,
       googleUserId,
+      sessionId: providedSessionId,
       secondaryGoogleUserId,
       phone,
       timezone,
@@ -268,7 +270,7 @@ router.post("/chat", chatLimiter, async (req, res) => {
 
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      const sessionId = `user-${googleUserId}-${today}`;
+      const sessionId = providedSessionId || `user-${googleUserId}-${today}`;
       const assistantResponse = await fetch(
         `${config.AGENT_BASE_URL}/api/chat/stream`,
         {

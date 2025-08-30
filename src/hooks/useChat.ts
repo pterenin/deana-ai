@@ -4,6 +4,7 @@ import { useTTS } from "./useTTS";
 import { useSpeechToText } from "./useSpeechToText";
 import { useAuthStore } from "../store/authStore";
 import { BACKEND_CHAT_ENDPOINT, BACKEND_URL } from "@/constants/apiConstants";
+import { buildSessionId } from "@/lib/session";
 
 export const useChat = () => {
   const {
@@ -126,10 +127,14 @@ export const useChat = () => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const clientNowISO = new Date().toISOString();
 
+      // Build per-page session id
+      const sessionId = buildSessionId(user.google_user_id);
+
       // Call the backend /chat endpoint with streaming
       const chatPayload = {
         text,
         googleUserId: user.google_user_id,
+        sessionId,
         ...(secondaryGoogleUserId && { secondaryGoogleUserId }),
         ...(phone && { phone }),
         timezone,
